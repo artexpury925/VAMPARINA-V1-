@@ -1,22 +1,45 @@
 {
   "name": "vamparina-v1-main",
   "version": "1.0.0",
-  "description": "VAMPARINA V1 AUTO ACTIVATE BOT 2025",
+  "description": "VAMPARINA V1 • Kenya's #1 Auto-Active Unlimited WhatsApp Bot Empire 2025 • Owner: Arnold Chirchir",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
+  "author": "Arnold Chirchir (+254703110780)",
+  "license": "MIT",
+  "keywords": [
+    "vamparina",
+    "whatsapp-bot",
+    "baileys",
+    "auto-activate",
+    "multi-session",
+    "kenya",
+    "arnold-chirchir"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arnold6001/vamparina-v1-main.git"
+  },
+  "homepage": "https://vamparina-v1-5.onrender.com",
   "dependencies": {
-    "@whiskeysockets/baileys": "latest",
+    "@whiskeysockets/baileys": "^6.7.18",
     "chalk": "^4.1.2",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "fs-extra": "^11.3.0",
-    "pino": "^9.0.0",
+    "pino": "^9.5.0",
     "axios": "^1.7.7",
-    "node-cache": "^5.1.2"
+    "node-cache": "^5.1.2",
+    "qrcode-terminal": "^0.12.0",
+    "link-preview-js": "^3.0.5",
+    "mime-types": "^2.1.35"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.33.5"
   }
 }
