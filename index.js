@@ -18,7 +18,7 @@ const {
 const pino = require("pino")
 
 const app = express()
-app.use(express.json({ limit: '100mb' }))
+app.use(express.json({ limit: '100mb' })) // Increased limit for full creds.json
 app.use(express.static('public'))
 
 const activeBots = new Map()
@@ -28,37 +28,49 @@ const GROUP_INVITE = "HAGRfzDEVcXC1e2HtOIjwc"
 const CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p"
 const SUDO_NUMBER = "254703110780"
 
-// WEBHOOK TO ACTIVATE BOT
+// WEBHOOK TO ACTIVATE BOT — NOW 100% COMPATIBLE WITH AUTO-SEND
 app.post('/vamparina-activate', async (req, res) => {
     try {
-        const { sessionId, phone, files } = req.body
-        if (!sessionId || !phone || !files) return res.status(400).json({ error: "Invalid" })
+        const { sessionId, phone, files, creds } = req.body // Accept both formats
+
+        if (!sessionId || !phone) return res.status(400).json({ error: "Invalid" })
 
         console.log(chalk.cyan(`\nNEW USER: ${phone} | Session: ${sessionId}`))
+        console.log(chalk.yellow(`Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\n`))
 
         const folder = path.join(__dirname, 'sessions', sessionId)
         await fs.ensureDir(folder)
 
-        for (const file of files) {
-            await fs.writeFile(path.join(folder, file.name), file.content)
+        // Support both old and new auto-send formats
+        if (files && Array.isArray(files)) {
+            for (const file of files) {
+                await fs.writeFile(path.join(folder, file.name), JSON.stringify(file.content, null, 2))
+            }
+        } else if (creds) {
+            await fs.writeFile(path.join(folder, 'creds.json'), JSON.stringify(creds, null, 2))
         }
 
         startUserBot(sessionId, phone)
-        res.json({ success: true })
+        res.json({ success: true, message: "VAMPARINA V1 ACTIVATED AUTOMATICALLY" })
     } catch (e) {
-        console.error(e)
+        console.error(chalk.red("Activation failed:"), e)
         res.status(500).json({ error: "Failed" })
     }
 })
 
 app.get('/', (req, res) => res.json({ 
-    status: "VAMPARINA MAIN BOT RUNNING", 
-    users: activeBots.size,
-    time: new Date().toLocaleString('en-KE')
+    status: "VAMPARINA V1 MAIN BOT RUNNING", 
+    active_users: activeBots.size,
+    time: new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' }),
+    owner: "Arnold Chirchir",
+    contact: "+254703110780"
 }))
 
 app.listen(process.env.PORT || 3000, () => {
-    console.log(chalk.green(`MAIN BOT LIVE ON PORT ${process.env.PORT || 3000}`))
+    console.log(chalk.green.bold(`\nVAMPARINA V1 MAIN BOT IS LIVE`))
+    console.log(chalk.cyan(`Receiving auto-sessions → https://vamparina-v1-5.onrender.com/vamparina-activate`))
+    console.log(chalk.magenta(`Dashboard → https://vamparina-v1-5.onrender.com`))
+    console.log(chalk.yellow(`Time: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\n`))
 })
 
 // START BOT PER USER
@@ -85,16 +97,16 @@ async function startUserBot(sessionId, phone) {
             const { connection, lastDisconnect } = update
 
             if (connection === 'open') {
-                console.log(chalk.green(`ACTIVE → ${phone}`))
+                console.log(chalk.green.bold(`VAMPARINA V1 ACTIVE → ${phone}@s.whatsapp.net`))
 
                 await sock.sendMessage(phone + '@s.whatsapp.net', {
-                    text: `*VAMPARINA V1 ONLINE!*\nBot activated automatically!\nOwner: @${SUDO_NUMBER}`
+                    text: `*VAMPARINA V1 IS NOW LIVE!*\n\nBot activated automatically from your linker!\nOwner: ${SUDO_NUMBER}\nTime: ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}`
                 })
 
                 // AUTO JOIN GROUP
                 try { 
                     const g = await sock.groupAcceptInvite(GROUP_INVITE)
-                    await sock.sendMessage(g, { text: "*VAMPARINA V1 IS HERE!*" })
+                    await sock.sendMessage(g, { text: "*VAMPARINA V1 HAS JOINED THE EMPIRE*" })
                 } catch (e) {}
 
                 // AUTO FOLLOW CHANNEL
@@ -106,8 +118,11 @@ async function startUserBot(sessionId, phone) {
 
             if (connection === 'close') {
                 const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-                if (shouldReconnect) setTimeout(() => startUserBot(sessionId, phone), 7000)
-                else {
+                if (shouldReconnect) {
+                    console.log(chalk.yellow(`Reconnecting ${phone} in 7s...`))
+                    setTimeout(() => startUserBot(sessionId, phone), 7000)
+                } else {
+                    console.log(chalk.red(`Logged out → ${phone}`))
                     activeBots.delete(sessionId)
                     await fs.remove(sessionPath)
                 }
@@ -116,22 +131,20 @@ async function startUserBot(sessionId, phone) {
 
         activeBots.set(sessionId, sock)
     } catch (err) {
-        console.error("Bot failed:", err)
+        console.error(chalk.red("Bot failed to start:"), err)
     }
 }
 
-// LOAD ALL EXISTING SESSIONS
+// LOAD ALL EXISTING SESSIONS ON STARTUP
 (async () => {
     const dir = path.join(__dirname, 'sessions')
     if (fs.existsSync(dir)) {
         const folders = fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isDirectory())
+        console.log(chalk.blue(`Loading ${folders.length} saved sessions...`))
         for (const f of folders) {
-            const creds = path.join(dir, f, 'creurat.json')
-            if (fs.existsSync(creds)) {
-                const phone = f.includes('_') ? f.split('_')[1] : f
-                startUserBot(f, phone.replace(/[^0-9]/g, ''))
-                await delay(3000)
-            }
+            const phone = f.includes('_') ? f.split('_')[1] : f.replace(/[^0-9]/g, '')
+            startUserBot(f, phone)
+            await delay(3000)
         }
     }
 })()
