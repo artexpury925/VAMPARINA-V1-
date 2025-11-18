@@ -1,7 +1,7 @@
 // commands/tiktok.js — VAMPARINA V1 TIKTOK COMMAND (2025)
 // OWNER: KING ARNOLD CHIRCHIR (+254703110780)
 
-const { tiktokdl } = require('@xct007/tiktok-scraper')
+const Tiktok = require('@xct007/tiktok-scraper')
 
 module.exports = async (sock, from, msg) => {
     try {
@@ -20,15 +20,15 @@ module.exports = async (sock, from, msg) => {
 
         // Download TikTok video
         await sock.sendMessage(from, { text: 'Downloading TikTok video, please wait...' })
-        const result = await tiktokdl(args)
+        const data = await Tiktok(args, { parse: true })
 
-        if (!result.success) {
+        if (!data?.video?.url) {
             return await sock.sendMessage(from, { text: 'Failed to download TikTok video. Try another URL.' })
         }
 
         // Send video
         await sock.sendMessage(from, {
-            video: { url: result.video.noWatermark },
+            video: { url: data.video.url },
             caption: `Vamparina V1 TikTok\nDownloaded by King Arnold (+254703110780)`
         })
 
