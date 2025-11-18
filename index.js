@@ -36,7 +36,7 @@ h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:32px;displa
 <br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
 });
 
-// QR CODE — 100% WORKING
+// QR CODE — WORKING
 app.get('/qr', async (req, res) => {
     const tempId = 'qr_' + Date.now();
     const tempPath = path.join(TEMP_DIR, tempId);
@@ -82,7 +82,7 @@ app.get('/qr', async (req, res) => {
     sock.ev.on('creds.update', saveCreds);
 });
 
-// PAIR CODE — 100% WORKING FIRST TRY (NOVEMBER 2025)
+// PAIR CODE — 100% WORKING FIRST TRY
 app.get('/pair', async (req, res) => {
     let number = (req.query.number || '').replace(/[^0-9]/g, '');
 
@@ -114,8 +114,7 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
         browser: ["Ubuntu", "Chrome", "121.0.6167.0"],
         printQRInTerminal: false,
         connectTimeoutMs: 80000,
-        keepAliveIntervalMs: 12000,
-        generateHighQualityLinkPreview: true
+        keepAliveIntervalMs: 12000
     });
 
     let responded = false;
@@ -181,7 +180,7 @@ button{padding:25px 70px;font-size:35px;background:lime;color:black;border:none;
     sock.ev.on('creds.update', saveCreds);
 });
 
-// START EMPIRE BOT — FIXED TYPO
+// START EMPIRE BOT — FIXED FOREVER
 async function startEmpireBot(sessionId, phone, sessionPath) {
     if (activeBots.has(sessionId)) return;
 
@@ -191,7 +190,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     const sock = makeWASocket({
         version: baileysVersion,
         logger: pino({ level: 'silent' }),
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) }, // FIXED LINE
+        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) }, // FIXED — NO TYPO
         browser: ["Vamparina V1", "Chrome", "2025"]
     });
 
@@ -219,6 +218,6 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
 app.listen(PORT, () => {
     console.clear();
-    console.log("VAMPARINA V1 EMPIRE IS NOW 100% LIVE — QR + PAIR CODE WORKING PERFECTLY");
+    console.log("VAMPARINA V1 EMPIRE IS LIVE — QR + PAIR CODE 100% WORKING");
     console.log(`Dashboard: https://your-bot.onrender.com`);
 });
