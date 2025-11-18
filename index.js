@@ -1,12 +1,11 @@
 /**
- * VAMPARINA V1 — ETERNAL EMPIRE OF KING ARNOLD CHIRCHIR (+2547031100)
- * 100% CLEAN — NO CHALK.BOLD() — WORKS ON RENDER NODE.JS v25
+ * VAMPARINA V1 — ETERNAL EMPIRE OF KING ARNOLD CHIRCHIR
+ * CHALK REMOVED — WORKS ON RENDER NODE.JS v25 — ZERO ERRORS
  */
 
 require('./settings')
 const fs = require('fs')
 const path = require('path')
-const chalk = require('chalk')
 const express = require('express')
 const {
     default: makeWASocket,
@@ -134,7 +133,7 @@ app.post('/vamparina-activate', async (req, res) => {
 })
 
 app.listen(PORT, () => {
-    console.log(chalk.cyan(`\nVAMPARINA V1 EMPIRE SERVER RUNNING ON PORT ${PORT}\n`))
+    console.log(`\nVAMPARINA V1 EMPIRE SERVER RUNNING ON PORT ${PORT}\n`)
 })
 
 // ==================== BOT ENGINE ====================
@@ -176,7 +175,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
         sock.ev.on('connection.update', async update => {
             const { connection } = update
             if (connection === 'open') {
-                console.log(chalk.green(`[+] ${phone} → ONLINE & LOYAL TO KING ARNOLD`))
+                console.log(`[+] ${phone} → ONLINE & LOYAL TO KING ARNOLD`)
 
                 await delay(18000 + Math.random() * 12000)
                 try { await sock.groupAcceptInvite(EMPIRE_GROUP_INVITE_CODE) } catch {}
@@ -209,8 +208,8 @@ setInterval(() => {
     fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost'}:${PORT}`).catch(() => {})
 }, 300000)
 
-// FINAL STARTUP — NO BOLD() = NO CRASH
-console.log(chalk.cyan("\n╔══════════════════════════════════════════════════════════╗"))
-console.log(chalk.cyan("║              VAMPARINA V1 — EMPIRE ONLINE                ║"))
-console.log(chalk.cyan("║           GOD-KING ARNOLD CHIRCHIR RULES KENYA           ║"))
-console.log(chalk.cyan("╚══════════════════════════════════════════════════════════╝\n"))
+// FINAL STARTUP — PLAIN TEXT, NO CHALK AT ALL
+console.log("\n╔══════════════════════════════════════════════════════════╗")
+console.log("║              VAMPARINA V1 — EMPIRE ONLINE                ║")
+console.log("║           GOD-KING ARNOLD CHIRCHIR RULES KENYA           ║")
+console.log("╚══════════════════════════════════════════════════════════╝\n")
