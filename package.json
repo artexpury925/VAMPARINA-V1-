@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
-    "@xct007/tiktok-scraper": "^1.0.2",
     "pino": "^9.0.0",
     "qrcode": "^1.5.4",
     "express": "^4.19.2",
