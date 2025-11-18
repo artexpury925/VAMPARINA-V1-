@@ -1,134 +1,143 @@
-const axios = require('axios');
-const { sleep } = require('../lib/myfunc');
+// commands/pair.js — VAMPARINA V1 PAIR CODE GENERATOR (2025)
+// OWNER: GOD-KING ARNOLD CHIRCHIR (+254703110780)
+// SELF-HOSTED • INSTANT • UNLIMITED • NEVER DIES
 
-async function pairCommand(sock, chatId, message, q) {
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    Browsers,
+    delay
+} = require("@whiskeysockets/baileys")
+const pino = require('pino')
+const fs = require('fs')
+const path = require('path')
+
+// Temp folder for pairing sessions
+const TEMP_PAIR_DIR = path.join(__dirname, '../temp_pair_sessions')
+if (!fs.existsSync(TEMP_PAIR_DIR)) fs.mkdirSync(TEMP_PAIR_DIR, { recursive: true })
+
+// Active pairing sessions (prevents duplicates)
+const activePairs = new Set()
+
+async function pairCommand(sock, from, msg, text) {
     try {
-        if (!q) {
-            return await sock.sendMessage(chatId, {
-                text: "Please provide valid WhatsApp number\nExample: .pair 91702395XXXX",
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
-                }
-            });
+        const sender = msg.key.participant || msg.key.remoteJid
+        const isKing = sender.replace(/[^0-9]/g, '') === '254703110780'
+
+        // Only King Arnold or sudo can use .pair
+        const sudoList = global.sudoList || []
+        const isSudo = sudoList.includes(sender)
+        if (!isKing && !isSudo && !msg.key.fromMe) {
+            return sock.sendMessage(from, { 
+                text: "Only *King Arnold Chirchir* and his chosen warriors can generate pairing codes." 
+            }, { quoted: msg })
         }
 
-        const numbers = q.split(',')
-            .map((v) => v.replace(/[^0-9]/g, ''))
-            .filter((v) => v.length > 5 && v.length < 20);
-
-        if (numbers.length === 0) {
-            return await sock.sendMessage(chatId, {
-                text: "Invalid number❌️ Please use the correct format!",
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
-                }
-            });
+        let number = text.trim().replace(/[^0-9]/g, '')
+        if (!number || number.length < 8) {
+            return sock.sendMessage(from, {
+                text: `*VAMPARINA V1 — PAIR CODE GENERATOR*\n\n` +
+                      `Usage: .pair 254703110780\n\n` +
+                      `Enter your number without + or spaces.\n` +
+                      `Code will appear in 10 seconds.\n\n` +
+                      `Long live the Empire.`
+            }, { quoted: msg })
         }
 
-        for (const number of numbers) {
-            const whatsappID = number + '@s.whatsapp.net';
-            const result = await sock.onWhatsApp(whatsappID);
+        // Add country code if missing
+        if (!number.startsWith('254') && number.length === 9) {
+            number = '254' + number
+        }
 
-            if (!result[0]?.exists) {
-                return await sock.sendMessage(chatId, {
-                    text: `That number is not registered on WhatsApp❗️`,
-                    contextInfo: {
-                        forwardingScore: 1,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
-                    }
-                });
+        const fullJid = number + '@s.whatsapp.net'
+
+        // Check if number exists on WhatsApp
+        const [result] = await sock.onWhatsApp(fullJid)
+        if (!result?.exists) {
+            return sock.sendMessage(from, { 
+                text: `Number *${number}* is not registered on WhatsApp.` 
+            }, { quoted: msg })
+        }
+
+        // Prevent spam
+        if (activePairs.has(number)) {
+            return sock.sendMessage(from, { 
+                text: `Pairing code already being generated for *${number}*...\nPlease wait 30 seconds.` 
+            }, { quoted: msg })
+        }
+
+        activePairs.add(number)
+
+        await sock.sendMessage(from, { 
+            text: `Generating pairing code for *${number}*...\n\nPlease wait 10-20 seconds.` 
+        }, { quoted: msg })
+
+        const sessionId = `pair_${number}_${Date.now()}`
+        const sessionPath = path.join(TEMP_PAIR_DIR, sessionId)
+        fs.mkdirSync(sessionPath, { recursive: true })
+
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
+        const { version } = await fetchLatestBaileysVersion()
+
+        const tempSock = makeWASocket({
+            version,
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
+            logger: pino({ level: 'silent' }),
+            browser: Browsers.macOS('Chrome')
+        })
+
+        let code = null
+
+        tempSock.ev.on('connection.update', async (update) => {
+            if (update.connection === 'open') {
+                // Already connected (rare)
+                fs.rmSync(sessionPath, { recursive: true, force: true })
+                activePairs.delete(number)
             }
+        })
 
-            await sock.sendMessage(chatId, {
-                text: "Wait a moment for the code",
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
-                }
-            });
-
+        if (!tempSock.authState.creds.registered) {
+            await delay(3000)
             try {
-                const response = await axios.get(`https://knight-bot-paircode.onrender.com/code?number=${number}`);
-                
-                if (response.data && response.data.code) {
-                    const code = response.data.code;
-                    if (code === "Service Unavailable") {
-                        throw new Error('Service Unavailable');
-                    }
-                    
-                    await sleep(5000);
-                    await sock.sendMessage(chatId, {
-                        text: `Your pairing code: ${code}`,
-                        contextInfo: {
-                            forwardingScore: 1,
-                            isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: '120363161513685998@newsletter',
-                                newsletterName: 'KnightBot MD',
-                                serverMessageId: -1
-                            }
-                        }
-                    });
-                } else {
-                    throw new Error('Invalid response from server');
-                }
-            } catch (apiError) {
-                console.error('API Error:', apiError);
-                const errorMessage = apiError.message === 'Service Unavailable' 
-                    ? "Service is currently unavailable. Please try again later."
-                    : "Failed to generate pairing code. Please try again later.";
-                
-                await sock.sendMessage(chatId, {
-                    text: errorMessage,
-                    contextInfo: {
-                        forwardingScore: 1,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
-                    }
-                });
+                code = await tempSock.requestPairingCode(number)
+                code = code.match(/.{1,4}/g).join('-')
+
+                await sock.sendMessage(from, {
+                    text: `*PAIR CODE GENERATED SUCCESSFULLY*\n\n` +
+                          `Number: ${number}\n` +
+                          `Code: *${code}*\n\n` +
+                          `Open WhatsApp → Linked Devices → Link with phone number → Enter code\n\n` +
+                          `You now have 60 seconds to use it.\n\n` +
+                          `*VAMPARINA V1 EMPIRE — BY KING ARNOLD CHIRCHIR*\n` +
+                          `+254703110780 = GOD OF WHATSAPP`
+                }, { quoted: msg })
+
+                // Auto cleanup after 2 minutes
+                setTimeout(() => {
+                    try { fs.rmSync(sessionPath, { recursive: true, force: true }) } catch {}
+                    activePairs.delete(number)
+                }, 120000)
+
+            } catch (err) {
+                console.error("PAIR CODE ERROR:", err.message)
+                await sock.sendMessage(from, { 
+                    text: `Failed to generate code for ${number}\n\nError: ${err.message}\n\nTry again in 1 minute.` 
+                }, { quoted: msg })
+                activePairs.delete(number)
             }
         }
+
+        tempSock.ev.on('creds.update', saveCreds)
+
     } catch (error) {
-        console.error(error);
-        await sock.sendMessage(chatId, {
-            text: "An error occurred. Please try again later.",
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363161513685998@newsletter',
-                    newsletterName: 'KnightBot MD',
-                    serverMessageId: -1
-                }
-            }
-        });
+        console.error("PAIR COMMAND ERROR:", error)
+        activePairs.delete(text?.trim()?.replace(/[^0-9]/g, '') || 'unknown')
+        await sock.sendMessage(from, { 
+            text: `PAIR SYSTEM ERROR\n\nThe empire's pairing system is temporarily overwhelmed.\nTry again in 30 seconds.` 
+        }, { quoted: msg })
     }
 }
 
-module.exports = pairCommand; 
+module.exports = pairCommand
