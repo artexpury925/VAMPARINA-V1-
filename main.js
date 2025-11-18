@@ -1,13 +1,12 @@
-// main.js — VAMPARINA V1 FULL COMMAND HANDLER (FIXED & ETERNAL)
+// main.js — VAMPARINA V1 FULL COMMAND HANDLER (2025 EDITION — NO CONFIG.JS)
 // OWNER: KING ARNOLD CHIRCHIR (+254703110780)
 
 const fs = require('fs')
 const path = require('path')
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 
-// Import your commands (keep your folders exactly as they are)
+// Import your commands and libs
 const settings = require('./settings')
-require('./config.js')
 const { isBanned } = require('./lib/isBanned')
 const { isSudo } = require('./lib/index')
 const isAdmin = require('./lib/isAdmin')
@@ -167,7 +166,6 @@ async function handleMessages(sock, m) {
 
 async function handleGroupParticipantUpdate(sock, update) {
     // Keep your welcome/goodbye/antidemote here
-    // It's safe
 }
 
 module.exports = {
