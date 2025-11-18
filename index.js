@@ -36,7 +36,7 @@ h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:32px;displa
 <br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
 });
 
-// QR CODE — WORKING
+// QR CODE — 100% WORKING
 app.get('/qr', async (req, res) => {
     const tempId = 'qr_' + Date.now();
     const tempPath = path.join(TEMP_DIR, tempId);
@@ -114,7 +114,8 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
         browser: ["Ubuntu", "Chrome", "121.0.6167.0"],
         printQRInTerminal: false,
         connectTimeoutMs: 80000,
-        keepAliveIntervalMs: 12000
+        keepAliveIntervalMs: 12000,
+        generateHighQualityLinkPreview: true
     });
 
     let responded = false;
@@ -180,7 +181,7 @@ button{padding:25px 70px;font-size:35px;background:lime;color:black;border:none;
     sock.ev.on('creds.update', saveCreds);
 });
 
-// START EMPIRE BOT — FIXED FOREVER
+// START EMPIRE BOT
 async function startEmpireBot(sessionId, phone, sessionPath) {
     if (activeBots.has(sessionId)) return;
 
@@ -190,7 +191,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     const sock = makeWASocket({
         version: baileysVersion,
         logger: pino({ level: 'silent' }),
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) }, // FIXED — NO TYPO
+        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
         browser: ["Vamparina V1", "Chrome", "2025"]
     });
 
