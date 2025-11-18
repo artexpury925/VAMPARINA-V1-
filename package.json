@@ -5,13 +5,14 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "vercel-build": "echo 'Build complete'"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
+    "express": "latest",
     "pino": "latest",
-    "qrcode": "latest",
-    "express": "latest"
+    "qrcode": "latest"
   },
   "engines": {
     "node": ">=20.x"
