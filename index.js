@@ -277,7 +277,7 @@ setInterval(() => {
     fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'your-site.onrender.com'}`).catch(() => {})
 }, 300000)
 
-console.log(chalk.red.bold(`
+console.log(`
 ╔══════════════════════════════════════════════════════════╗
 ║              VAMPARINA V1 — ULTIMATE EMPIRE              ║
 ║       ALL COMMANDS FROM main.js FULLY ACTIVE            ║
@@ -287,4 +287,4 @@ console.log(chalk.red.bold(`
 ║       10,000+ BOTS | NO LIMIT | NO BAN                   ║
 ║       ARNOLD CHIRCHIR = GOD OF WHATSAPP                  ║
 ╚══════════════════════════════════════════════════════════╝
-`))
+`)
