@@ -1,9 +1,8 @@
 {
   "name": "vamparina-v1",
   "version": "2025.11.18",
-  "description": "VAMPARINA V1 EMPIRE BOT — KING ARNOLD CHIRCHIR",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
@@ -12,8 +11,8 @@
     "pino": "latest",
     "qrcode": "latest",
     "express": "latest",
-    "yt-search": "latest",
-    "axios": "latest"
+    "axios": "latest",
+    "yt-search": "latest"
   },
   "engines": {
     "node": ">=20.x"
