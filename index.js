@@ -1,22 +1,22 @@
-process.env.NODE_OPTIONS = "--max-old-space-size=512";
-
 const config = require('./config');
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const makeWASocket = require("@whiskeysockets/baileys").default;
 const { useMultiFileAuthState, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const QRCode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
 
+// Vercel-compatible temporary session storage (in-memory)
 const SESSION_DIR = path.join(__dirname, 'auto_sessions');
 const TEMP_DIR = path.join(__dirname, 'temp_sessions');
+const activeBots = new Map();
+const tempSessions = new Map(); // In-memory store for Vercel
 
 [SESSION_DIR, TEMP_DIR].forEach(d => !fs.existsSync(d) && fs.mkdirSync(d, { recursive: true }));
 
-const PORT = process.env.PORT || 3000;
-const activeBots = new Map();
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -36,13 +36,14 @@ h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:32px;displa
 <br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
 });
 
-// QR CODE — 100% WORKING
+// QR CODE — OPTIMIZED FOR VERCEL
 app.get('/qr', async (req, res) => {
     const tempId = 'qr_' + Date.now();
     const tempPath = path.join(TEMP_DIR, tempId);
     fs.mkdirSync(tempPath, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(tempPath);
+    tempSessions.set(tempId, { state, saveCreds }); // Store in-memory
     const baileysVersion = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -51,12 +52,18 @@ app.get('/qr', async (req, res) => {
         logger: pino({ level: 'silent' }),
         browser: Browsers.ubuntu('Chrome'),
         printQRInTerminal: false,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000
+        connectTimeoutMs: 30000, // Vercel-friendly timeout
+        keepAliveIntervalMs: 5000
     });
 
     let sent = false;
-    const timeout = setTimeout(() => !sent && res.send('<h1 style="color:red">TIMEOUT</h1><a href="/qr">TRY AGAIN</a>'), 90000);
+    const timeout = setTimeout(() => {
+        if (!sent) {
+            res.send('<h1 style="color:red">TIMEOUT</h1><a href="/qr">TRY AGAIN</a>');
+            sock.end?.();
+            tempSessions.delete(tempId);
+        }
+    }, 45000); // Vercel free tier: 10s, Pro: 60s, so 45s is safe
 
     sock.ev.on('connection.update', async (update) => {
         if (update.qr && !sent) {
@@ -74,15 +81,17 @@ app.get('/qr', async (req, res) => {
             const finalPath = path.join(SESSION_DIR, sessionId);
             fs.mkdirSync(finalPath, { recursive: true });
             fs.cpSync(tempPath, finalPath, { recursive: true });
-            await delay(10000);
-            startEmpireBot(sessionId, phone, finalPath);
+            await delay(5000);
+            startEmpireBot(sessionId, phone, tempSessions.get(tempId));
             fs.rmSync(tempPath, { recursive: true, force: true });
+            tempSessions.delete(tempId);
         }
     });
-    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('creds.update', tempSessions.get(tempId)?.saveCreds);
 });
 
-// PAIR CODE — 100% WORKING FIRST TRY
+// PAIR CODE — OPTIMIZED FOR VERCEL
 app.get('/pair', async (req, res) => {
     let number = (req.query.number || '').replace(/[^0-9]/g, '');
 
@@ -105,6 +114,7 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
     fs.mkdirSync(tempPath, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(tempPath);
+    tempSessions.set(tempId, { state, saveCreds });
     const baileysVersion = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -113,8 +123,8 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
         logger: pino({ level: 'silent' }),
         browser: ["Ubuntu", "Chrome", "121.0.6167.0"],
         printQRInTerminal: false,
-        connectTimeoutMs: 80000,
-        keepAliveIntervalMs: 12000,
+        connectTimeoutMs: 30000,
+        keepAliveIntervalMs: 5000,
         generateHighQualityLinkPreview: true
     });
 
@@ -124,8 +134,9 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
             responded = true;
             res.send(`<h1 style="color:red">TIMEOUT</h1><a href="/pair">TRY AGAIN</a>`);
             sock.end?.();
+            tempSessions.delete(tempId);
         }
-    }, 90000);
+    }, 45000);
 
     sock.ev.on('connection.update', async (update) => {
         if (update.connection === 'open') {
@@ -136,9 +147,10 @@ button{padding:20px 60px;font-size:30px;background:lime;color:black;border:none;
             const finalPath = path.join(SESSION_DIR, sessionId);
             fs.mkdirSync(finalPath, { recursive: true });
             fs.cpSync(tempPath, finalPath, { recursive: true });
-            await delay(10000);
-            startEmpireBot(sessionId, phone, finalPath);
+            await delay(5000);
+            startEmpireBot(sessionId, phone, tempSessions.get(tempId));
             fs.rmSync(tempPath, { recursive: true, force: true });
+            tempSessions.delete(tempId);
         }
         if (update.connection === 'close' && !responded) {
             clearTimeout(timeout);
@@ -165,27 +177,27 @@ button{padding:25px 70px;font-size:35px;background:lime;color:black;border:none;
 <br><br><a href="/pair">Pair Another</a>
 <br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
         } catch (err) {
-            if (attempt < 3 && !responded) {
-                await delay(8000);
+            if (attempt < 2 && !responded) {
+                await delay(5000);
                 tryPair(attempt + 1);
             } else if (!responded) {
                 responded = true;
                 clearTimeout(timeout);
                 res.send(`<h1 style="color:red">FAILED</h1><a href="/pair?number=${number}">TRY AGAIN</a>`);
-                fs.rmSync(tempPath, { recursive: true, force: true });
+                tempSessions.delete(tempId);
             }
         }
     };
 
-    setTimeout(() => tryPair(), 7000);
+    setTimeout(() => tryPair(), 5000);
     sock.ev.on('creds.update', saveCreds);
 });
 
-// START EMPIRE BOT
-async function startEmpireBot(sessionId, phone, sessionPath) {
+// START EMPIRE BOT — VERCEL SERVERLESS
+async function startEmpireBot(sessionId, phone, sessionData) {
     if (activeBots.has(sessionId)) return;
 
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { state, saveCreds } = sessionData || await useMultiFileAuthState(path.join(SESSION_DIR, sessionId));
     const baileysVersion = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -204,21 +216,16 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     sock.ev.on('connection.update', async (update) => {
         if (update.connection === 'open') {
             console.log(`[+] ${phone} → VAMPARINA V1 ONLINE`);
-            await delay(15000);
+            await delay(5000);
             try { await sock.groupAcceptInvite(config.EMPIRE_GROUP_INVITE); } catch {}
             await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${config.ownerNumber}` });
         }
         if (update.connection === 'close') {
             activeBots.delete(sessionId);
-            setTimeout(() => startEmpireBot(sessionId, phone, sessionPath), 10000);
         }
     });
 
     sock.ev.on('creds.update', saveCreds);
 }
 
-app.listen(PORT, () => {
-    console.clear();
-    console.log("VAMPARINA V1 EMPIRE IS LIVE — QR + PAIR CODE 100% WORKING");
-    console.log(`Dashboard: https://your-bot.onrender.com`);
-});
+module.exports = app; // Vercel requires module.exports for serverless
