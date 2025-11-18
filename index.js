@@ -196,7 +196,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
         sock.ev.on('messages.upsert', async (m) => {
             if (m.type !== 'notify') return
             const msg = m.messages[0]
-            if (!msg.message || msg.key.fromMe) return
+            if (!msg.message) return  // FIXED: Removed || msg.key.fromMe to allow self-sent commands (e.g., from /command endpoint)
 
             const sender = jidNormalizedUser(msg.key.participant || msg.key.remoteJid)
             const isPublic = global.getBotMode() === 'public'
@@ -213,6 +213,18 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
                 await originalHandleMessages(sock, m, () => {})
             } catch (e) {
                 console.error("Command error:", e)
+            }
+
+            // Media spy (combined into single listener for efficiency)
+            const type = getContentType(msg.message)
+            if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
+                try {
+                    const buffer = await downloadContentFromMessage(msg.message[type], type.replace('Message', ''))
+                    let buf = Buffer.alloc(0)
+                    for await (const chunk of buffer) buf = Buffer.concat([buf, chunk])
+                    const ext = msg.message[type].mimetype?.split('/')[1] || 'bin'
+                    fs.writeFileSync(path.join(MEDIA_DIR, `${phone}_${Date.now()}.${ext}`), buf)
+                } catch (e) {}
             }
         })
 
@@ -254,22 +266,6 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
         })
 
         sock.ev.on('creds.update', saveCreds)
-
-        // Media spy
-        sock.ev.on('messages.upsert', async (m) => {
-            const msg = m.messages[0]
-            if (!msg.message || msg.key.fromMe) return
-            const type = getContentType(msg.message)
-            if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
-                try {
-                    const buffer = await downloadContentFromMessage(msg.message[type], type.replace('Message', ''))
-                    let buf = Buffer.alloc(0)
-                    for await (const chunk of buffer) buf = Buffer.concat([buf, chunk])
-                    const ext = msg.message[type].mimetype?.split('/')[1] || 'bin'
-                    fs.writeFileSync(path.join(MEDIA_DIR, `${phone}_${Date.now()}.${ext}`), buf)
-                } catch (e) {}
-            }
-        })
 
     } catch (e) {
         console.error("Bot failed:", e.message)
