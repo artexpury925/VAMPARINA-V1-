@@ -1,6 +1,6 @@
 /**
- * VAMPARINA V1 — ETERNAL EMPIRE OF KING ARNOLD CHIRCHIR (+254703110780)
- * 100% FIXED | ZERO ERRORS | WORKS ON RENDER NODE.JS v25
+ * VAMPARINA V1 — ETERNAL EMPIRE OF KING ARNOLD CHIRCHIR (+2547031100)
+ * 100% CLEAN — NO CHALK.BOLD() — WORKS ON RENDER NODE.JS v25
  */
 
 require('./settings')
@@ -21,7 +21,6 @@ const {
 const pino = require("pino")
 const fetch = require('node-fetch')
 
-// Your main command handler
 const { handleMessages: originalHandleMessages, handleGroupParticipantUpdate } = require('./main')
 
 // ==================== CONFIG ====================
@@ -34,12 +33,10 @@ const MEDIA_DIR = path.join(__dirname, 'media')
 const MODE_FILE = path.join(__dirname, 'data', 'bot_mode.json')
 const PORT = process.env.PORT || 3000
 
-// Create folders
 ;[SESSION_DIR, MEDIA_DIR, path.dirname(MODE_FILE)].forEach(d => {
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true })
 })
 
-// Bot mode (public/private)
 if (!fs.existsSync(MODE_FILE)) {
     fs.writeFileSync(MODE_FILE, JSON.stringify({ isPublic: true }, null, 2))
 }
@@ -58,7 +55,7 @@ global.setBotMode = (mode) => {
 
 const activeSessions = new Map()
 
-// ==================== WEB DASHBOARD ====================
+// ==================== DASHBOARD ====================
 const app = express()
 app.use(express.json({ limit: '200mb' }))
 app.use(express.urlencoded({ extended: true, limit: '200mb' }))
@@ -72,13 +69,10 @@ app.get('/dashboard', (req, res) => {
 ╔══════════════════════════════════════════════════════════╗
 ║                VAMPARINA V1 — EMPIRE ONLINE              ║
 ║           GOD-KING: ARNOLD CHIRCHIR (+254703110780)      ║
-║                                                          ║
 ║  Active Bots : ${activeSessions.size.toString().padStart(3)}                              ║
 ║  Mode        : ${modeText.padEnd(40)}║
-║                                                          ║
 ║  Empire Group : ${EMPIRE_GROUP_LINK}      ║
 ║  Channel      : Followed by all bots                     ║
-║                                                          ║
 ║       ALL COMMANDS ACTIVE — FULL CONTROL                 ║
 ║       LONG LIVE THE ETERNAL KING OF KENYA                ║
 ╚══════════════════════════════════════════════════════════╝
@@ -86,7 +80,6 @@ app.get('/dashboard', (req, res) => {
     `)
 })
 
-// Control all bots
 app.post('/command', async (req, res) => {
     const { command, target = 'all' } = req.body
     if (!command) return res.status(400).json({ error: "command required" })
@@ -173,7 +166,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
             if (!isPublic && !isKing && !isOwner) return
 
-            try { await originalHandleMessages(sock, m, () => {}) } catch (e) {}
+            try { await originalHandleMessages(sock, m, () => {}) } catch {}
         })
 
         sock.ev.on('group-participants.update', async u => {
@@ -207,7 +200,7 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
 
         sock.ev.on('creds.update', saveCreds)
     } catch (e) {
-        console.error("Bot failed to start:", e.message)
+        console.error("Bot failed:", e.message)
     }
 }
 
@@ -216,8 +209,8 @@ setInterval(() => {
     fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost'}:${PORT}`).catch(() => {})
 }, 300000)
 
-// FINAL STARTUP MESSAGE — NO MORE CHALK ERRORS
-console.log(chalk.cyan.bold("\n╔══════════════════════════════════════════════════════════╗"))
-console.log(chalk.cyan.bold("║              VAMPARINA V1 — EMPIRE ONLINE                ║"))
-console.log(chalk.cyan.bold("║           GOD-KING ARNOLD CHIRCHIR RULES KENYA           ║"))
-console.log(chalk.cyan.bold("╚══════════════════════════════════════════════════════════╝\n"))
+// FINAL STARTUP — NO BOLD() = NO CRASH
+console.log(chalk.cyan("\n╔══════════════════════════════════════════════════════════╗"))
+console.log(chalk.cyan("║              VAMPARINA V1 — EMPIRE ONLINE                ║"))
+console.log(chalk.cyan("║           GOD-KING ARNOLD CHIRCHIR RULES KENYA           ║"))
+console.log(chalk.cyan("╚══════════════════════════════════════════════════════════╝\n"))
