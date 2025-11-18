@@ -11,9 +11,7 @@
     "@whiskeysockets/baileys": "latest",
     "pino": "latest",
     "qrcode": "latest",
-    "express": "latest",
-    "axios": "latest",
-    "yt-search": "latest"
+    "express": "latest"
   },
   "engines": {
     "node": ">=20.x"
