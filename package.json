@@ -1,36 +1,25 @@
 {
   "name": "vamparina-v1-empire",
-  "version": "2025.11.17",
-  "description": "VAMPARINA V1 • Arnold Chirchir • Kenya's #1 Auto-Active WhatsApp Empire 2025",
+  "version": "1.0.0",
+  "description": "VAMPARINA V1 — ETERNAL EMPIRE OF ARNOLD CHIRCHIR",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "author": "Arnold Chirchir (+254703110780)",
-  "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.18",
-    "axios": "^1.7.7",
-    "chalk": "^4.1.2",
-    "express": "^4.21.2",
-    "pino": "^9.5.0"
-  },
-  "optionalDependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "pino": "^9.0.0",
+    "node-fetch": "^3.3.2",
     "qrcode-terminal": "^0.12.0",
-    "node-cache": "^5.1.2"
+    "fs-extra": "^11.2.0",
+    "chalk": "^5.3.0",
+    "express": "^4.19.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "axios": "^1.7.7",
+    "yt-search": "^2.12.0",
+    "ytdl-core": "^4.11.5"
   },
-  "devDependencies": {},
-  "keywords": [
-    "vamparina",
-    "whatsapp-bot",
-    "kenya",
-    "arnold-chirchir",
-    "multi-session",
-    "auto-join",
-    "empire-2025"
-  ]
+  "engines": {
+    "node": ">=18.x"
+  }
 }
