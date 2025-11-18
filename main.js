@@ -1,18 +1,18 @@
-// main.js — VAMPARINA V1 FULL COMMAND HANDLER (2025 EDITION)
+// main.js — VAMPARINA V1 FULL COMMAND HANDLER (FIXED & ETERNAL)
 // OWNER: KING ARNOLD CHIRCHIR (+254703110780)
 
 const fs = require('fs')
 const path = require('path')
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 
-// Import all your commands (keep your folder structure)
+// Import your commands (keep your folders exactly as they are)
 const settings = require('./settings')
 require('./config.js')
 const { isBanned } = require('./lib/isBanned')
 const { isSudo } = require('./lib/index')
 const isAdmin = require('./lib/isAdmin')
 
-// === YOUR COMMANDS (keep all your existing ones) ===
+// Your command files
 const tagAllCommand = require('./commands/tagall')
 const helpCommand = require('./commands/help')
 const banCommand = require('./commands/ban')
@@ -30,32 +30,34 @@ const aliveCommand = require('./commands/alive')
 const ownerCommand = require('./commands/owner')
 const { handleChatbotResponse } = require('./commands/chatbot')
 
-// Add more as needed — all your existing commands work
-
-// === GLOBAL CONFIG ===
+// GLOBAL CONFIG
 global.packname = settings.packname || "Vamparina V1"
 global.author = settings.author || "Arnold Chirchir"
-global.channelLink = "https://whatsapp.com/channel/0029Va90zAnIHphOuO8Msp3A"
 
-// === BOT MODE (PUBLIC/PRIVATE) ===
+// BOT MODE SYSTEM (PUBLIC / PRIVATE)
 global.getBotMode = () => {
     try {
         const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'messageCount.json')))
         return data.isPublic ? 'public' : 'private'
-    } catch { return 'public' }
+    } catch {
+        return 'public'
+    }
 }
 
 global.setBotMode = (mode) => {
     try {
         let data = { isPublic: mode === 'public' }
-        if (fs.existsSync(path.join(__dirname, 'data', 'messageCount.json'))) {
-            data = { ...JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'messageCount.json')), isPublic: mode === 'public' }
+        const filePath = path.join(__dirname, 'data', 'messageCount.json')
+        if (fs.existsSync(filePath)) {
+            data = { ...JSON.parse(fs.readFileSync(filePath)), isPublic: mode === 'public' }
         }
-        fs.writeFileSync(path.join(__dirname, 'data', 'messageCount.json'), JSON.stringify(data, null, 2))
-    } catch (e) { console.log("Mode save error:", e.message) }
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+    } catch (e) {
+        console.log("Failed to save mode:", e.message)
+    }
 }
 
-// === MAIN MESSAGE HANDLER ===
+// MAIN MESSAGE HANDLER
 async function handleMessages(sock, m) {
     try {
         const msg = m.messages[0]
@@ -72,13 +74,13 @@ async function handleMessages(sock, m) {
         const isSudoUser = await isSudo(sender)
         const isOwner = sender.includes("254703110780") || msg.key.fromMe
 
-        // === PRIVATE MODE CHECK ===
+        // PRIVATE MODE BLOCK
         if (global.getBotMode() === 'private' && !isOwner && !isSudoUser) return
 
-        // === BANNED CHECK ===
+        // BANNED USER BLOCK
         if (isBanned(sender) && !body.startsWith('.unban')) return
 
-        // === COMMAND PREFIX ===
+        // NO COMMAND → CHATBOT OR EXIT
         if (!body.startsWith('.')) {
             if (isGroup) await handleChatbotResponse(sock, from, msg, body, sender)
             return
@@ -87,7 +89,7 @@ async function handleMessages(sock, m) {
         const args = body.slice(1).trim().split(/ +/)
         const cmd = args.shift().toLowerCase()
 
-        // === COMMAND ROUTER ===
+        // COMMAND ROUTER
         switch (cmd) {
             case 'menu':
             case 'help':
@@ -104,6 +106,7 @@ async function handleMessages(sock, m) {
                 break
             case 'play':
             case 'song':
+            case 'music':
                 await songCommand(sock, from, msg)
                 break
             case 'video':
@@ -112,6 +115,7 @@ async function handleMessages(sock, m) {
                 break
             case 'ai':
             case 'gpt':
+            case 'gemini':
                 await aiCommand(sock, from, msg)
                 break
             case 'tiktok':
@@ -131,41 +135,39 @@ async function handleMessages(sock, m) {
                 await stickerCommand(sock, from, msg)
                 break
             case 'tagall':
-                if (!isGroup) break
-                await tagAllCommand(sock, from, sender, msg)
+                if (isGroup) await tagAllCommand(sock, from, sender, msg)
                 break
             case 'kick':
-                if (!isGroup) break
-                await kickCommand(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg)
+                if (isGroup) await kickCommand(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg)
                 break
             case 'ban':
                 await banCommand(sock, from, msg)
                 break
 
-            // === OWNER COMMANDS ===
+            // OWNER ONLY: CHANGE MODE
             case 'mode':
-                if (!isOwner) return sock.sendMessage(from, { text: "Only King Arnold" })
-                const mode = args[0]?.toLowerCase()
-                if (mode === 'public' || mode === 'private') {
-                    global.setBotMode(mode)
-                    await sock.sendMessage(from, { text: `Bot is now ${mode.toUpperCase()}` })
+                if (!isOwner) return sock.sendMessage(from, { text: "Only King Arnold can use this" })
+                const newMode = args[0]?.toLowerCase()
+                if (newMode === 'public' || newMode === 'private') {
+                    global.setBotMode(newMode)
+                    await sock.sendMessage(from, { text: `Bot is now *${newMode.toUpperCase()}* mode` })
                 } else {
-                    await sock.sendMessage(from, { text: "Usage: .mode public/private" })
+                    await sock.sendMessage(from, { text: "Use: .mode public  or  .mode private" })
                 }
                 break
 
-            // Add all your other commands here exactly as they were
+            // Add ALL your other commands here the same way
             // They will work perfectly
         }
 
     } catch (err) {
-        console.error("Message handler error:", err.message)
+        console.error("Error in main.js:", err.message)
     }
 }
 
-// === GROUP EVENTS ===
 async function handleGroupParticipantUpdate(sock, update) {
-    // Your welcome/goodbye, anti-demote, etc. — keep as-is
+    // Keep your welcome/goodbye/antidemote here
+    // It's safe
 }
 
 module.exports = {
