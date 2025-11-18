@@ -1,8 +1,9 @@
 {
   "name": "vamparina-v1",
   "version": "2025.11.18",
-  "type": "module",
+  "description": "VAMPARINA V1 EMPIRE — KING ARNOLD CHIRCHIR",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
