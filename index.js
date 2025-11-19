@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
 
-// Dynamically load modules (handles ES modules and CommonJS)
+// Dynamically load modules
 async function loadCommandModule(file) {
   try {
     const module = await import(file);
@@ -38,10 +38,10 @@ const { handleChatbotResponse } = await loadCommandModule('./commands/chatbot.js
 
 const logger = pino({ level: 'silent' });
 const SESSION_DIR = './auto_sessions';
-const SUDO_FILE = path.join(process.cwd(), 'data',-god.json');
+const SUDO_FILE = path.join(process.cwd(), 'data', 'sudo.json');
 const MODE_FILE = path.join(process.cwd(), 'data', 'messageCount.json');
 
-// Ensure directories exist
+// Ensure directories
 if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 
@@ -89,10 +89,15 @@ global.setBotMode = (mode) => {
   }
 };
 
-// Auto-pull sessions from GitHub every 60 seconds
+// Auto-pull sessions
 setInterval(() => {
   try {
-    execSync('git pull origin main --force', { stdio: 'ignore' });
+    const gitUrl = process.env.GIT_TOKEN 
+–
+
+      ? `https://${process.env.GIT_TOKEN}@github.com/artexpury925/VAMPARINA-V1-.git`
+      : 'https://github.com/artexpury925/VAMPARINA-V1-.git';
+    execSync(`git pull ${gitUrl} main --force`, { stdio: 'ignore' });
     console.log("✅ NEW SOLDIERS PULLED FROM GITHUB");
   } catch (e) {
     console.error("Git pull failed:", e.message);
@@ -100,17 +105,19 @@ setInterval(() => {
 }, 60000);
 
 async function startBot() {
-  // Load sessions
   const sessionFolders = fs.readdirSync(SESSION_DIR).filter(folder => folder.startsWith('vamp_'));
   if (sessionFolders.length === 0) {
     console.log("❌ No sessions found in auto_sessions/. Retrying Git pull...");
     try {
-      execSync('git pull origin main --force', { stdio: 'ignore' });
+      const gitUrl = process.env.GIT_TOKEN 
+        ? `https://${process.env.GIT_TOKEN}@github.com/artexpury925/VAMPARINA-V1-.git`
+        : 'https://github.com/artexpury925/VAMPARINA-V1-.git';
+      execSync(`git pull ${gitUrl} main --force`, { stdio: 'ignore' });
       console.log("✅ Retried Git pull");
     } catch (e) {
       console.error("Retry Git pull failed:", e.message);
     }
-    return setTimeout(startBot, 10000); // Retry after 10s
+    return setTimeout(startBot, 10000);
   }
 
   for (const sessionFolder of sessionFolders) {
