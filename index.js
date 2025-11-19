@@ -13,29 +13,32 @@ app.listen(process.env.PORT || 3000);
 const OWNER = "254703110780@s.whatsapp.net";
 const GROUP_INVITE = "BZNDaKhvMFo5Gmne3wxt9n";
 const CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p@newsletter";
-const SESSION_URL = "https://vamparina-code.onrender.com";
-const PHONE_NUMBER = "254703110780";
+const LINKER_URL = "https://vamparina-code.onrender.com";
+const PHONE_NUMBER = "254703110780"; // For fallback pairing
 
 async function startBot() {
   const authFolder = "./auto_sessions";
   if (!existsSync(authFolder)) mkdirSync(authFolder);
 
-  // Fetch creds from URL
+  // === FETCH CREDS FROM YOUR LINKER URL ===
   if (!existsSync(`${authFolder}/creds.json`)) {
     try {
-      const response = await fetch(SESSION_URL);
+      const response = await fetch(LINKER_URL);
       const text = await response.text();
+
+      // Try to parse as JSON
+      let sessionData;
       try {
-        const json = JSON.parse(text);
-        writeFileSync(`${authFolder}/creds.json`, JSON.stringify(json, null, 2));
-        console.log("✅ Creds.json fetched and saved from URL");
+        sessionData = JSON.parse(text);
+        writeFileSync(`${authFolder}/creds.json`, JSON.stringify(sessionData, null, 2));
+        console.log("✅ Creds.json fetched and saved from linker");
       } catch (e) {
-        console.log("⚠️ URL returned non-JSON. Raw response:", text.slice(0, 200) + "...");
-        console.log("💡 Falling back to pairing code method.");
+        console.log("⚠️ Linker returned non-JSON. Raw response:", text.slice(0, 200) + "...");
+        console.log("💡 Falling back to pairing code.");
       }
     } catch (err) {
-      console.error("❌ Failed to fetch from URL:", err.message);
-      console.log("💡 Falling back to pairing code method.");
+      console.error("❌ Failed to fetch from linker:", err.message);
+      console.log("💡 Falling back to pairing code.");
     }
   }
 
@@ -47,40 +50,30 @@ async function startBot() {
     printQRInTerminal: false,
   });
 
-  // === LOAD COMMANDS - FIXED: Only scan directories ===
+  // === LOAD COMMANDS — FIXED: ONLY DIRECTORIES ===
   sock.commands = new Map();
   const loadCommands = async () => {
     sock.commands.clear();
     if (!existsSync("./commands")) {
-      console.log("⚠️ No ./commands folder found. Skipping command load.");
+      console.log("⚠️ No ./commands folder found.");
       return;
     }
 
-    const categories = readdirSync("./commands").filter(item => {
+    const items = readdirSync("./commands");
+    for (const item of items) {
       const fullPath = resolve("./commands", item);
-      return statSync(fullPath).isDirectory(); // Only include directories
-    });
+      if (!statSync(fullPath).isDirectory()) continue; // Skip files like 'M'
 
-    if (categories.length === 0) {
-      console.log("⚠️ No command categories found in ./commands");
-      return;
-    }
-
-    for (const category of categories) {
-      try {
-        const files = readdirSync(`./commands/${category}`).filter(f => f.endsWith(".js"));
-        for (const file of files) {
-          try {
-            const cmd = await import(`./commands/${category}/${file}?${Date.now()}`);
-            if (cmd.default?.name) {
-              sock.commands.set(cmd.default.name.toLowerCase(), cmd.default);
-            }
-          } catch (e) {
-            console.log(`❌ Failed to load ${file}:`, e.message);
+      const files = readdirSync(fullPath).filter(f => f.endsWith(".js"));
+      for (const file of files) {
+        try {
+          const cmd = await import(`./commands/${item}/${file}?${Date.now()}`);
+          if (cmd.default?.name) {
+            sock.commands.set(cmd.default.name.toLowerCase(), cmd.default);
           }
+        } catch (e) {
+          console.log(`❌ Failed to load ${item}/${file}:`, e.message);
         }
-      } catch (e) {
-        console.log(`❌ Invalid category folder: ${category}`, e.message);
       }
     }
     console.log(`✅ Loaded ${sock.commands.size} commands`);
@@ -88,20 +81,20 @@ async function startBot() {
 
   await loadCommands();
 
-  // Connection events
+  // === CONNECTION HANDLER ===
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
-      console.log("📱 Fallback QR Code:");
+      console.log("📱 QR Code (fallback):");
       qrcode.generate(qr, { small: true });
       const code = await sock.requestPairingCode(PHONE_NUMBER);
-      console.log(`🔑 PAIRING CODE: ${code} (Enter in WhatsApp > Linked Devices > Link with phone number)`);
+      console.log(`🔑 PAIRING CODE: ${code}`);
     }
     if (connection === "open") {
       console.log("✅ VAMPARINA V1 BY ARNOLD CHIRCHIR IS NOW ACTIVE");
 
-      try { await sock.groupAcceptInvite(GROUP_INVITE); } catch (e) { console.log("Group join failed:", e.message); }
-      try { await sock.newsletterFollow(CHANNEL_ID); } catch (e) { console.log("Channel follow failed:", e.message); }
+      try { await sock.groupAcceptInvite(GROUP_INVITE); } catch (e) {}
+      try { await sock.newsletterFollow(CHANNEL_ID); } catch (e) {}
     }
     if (connection === "close") {
       if (lastDisconnect?.error?.output?.statusCode !== 401) startBot();
@@ -110,7 +103,7 @@ async function startBot() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // Message handler
+  // === MESSAGE HANDLER (RESPOND TO COMMANDS) ===
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const m = messages[0];
     if (!m.message || m.key.fromMe) return;
@@ -126,9 +119,7 @@ async function startBot() {
     else if (m.message.imageMessage?.caption) text = m.message.imageMessage.caption;
     else if (m.message.videoMessage?.caption) text = m.message.videoMessage.caption;
 
-    if (!text) return;
-
-    if (text[0] !== ".") return; // Only respond to . commands
+    if (!text || text[0] !== ".") return;
 
     const body = text.slice(1).trim();
     const [cmdName, ...args] = body.split(/\s+/);
