@@ -1,4 +1,3 @@
-
 {
   "name": "vamparina-v1",
   "version": "1.0.0",
@@ -30,7 +29,10 @@
     "dotenv": "^16.4.5",
     "moment": "^2.30.1",
     "sharp": "^0.33.3",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0",
+    "crypto-js": "^4.2.0"
   },
   "engines": {
     "node": ">=20.0.0"
