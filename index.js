@@ -4,26 +4,37 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
 
-// Import command handlers (assumed to exist in your project)
-import settings from './settings.js';
-import { isBanned } from './lib/isBanned.js';
-import isAdmin from './lib/isAdmin.js';
-import tagAllCommand from './commands/tagall.js';
-import helpCommand from './commands/help.js';
-import banCommand from './commands/ban.js';
-import kickCommand from './commands/kick.js';
-import stickerCommand from './commands/sticker.js';
-import playCommand from './commands/play.js';
-import songCommand from './commands/song.js';
-import videoCommand from './commands/video.js';
-import aiCommand from './commands/ai.js';
-import tiktokCommand from './commands/tiktok.js';
-import instagramCommand from './commands/instagram.js';
-import facebookCommand from './commands/facebook.js';
-import pingCommand from './commands/ping.js';
-import aliveCommand from './commands/alive.js';
-import ownerCommand from './commands/owner.js';
-import { handleChatbotResponse } from './commands/chatbot.js';
+// Dynamically import command modules to handle default/named exports
+async function loadCommandModule(file) {
+  try {
+    const module = await import(file);
+    return module.default || module; // Use default export if available, else entire module
+  } catch (e) {
+    console.error(`Failed to load ${file}:`, e.message);
+    return {};
+  }
+}
+
+// Import command handlers
+const settings = await loadCommandModule('./settings.js');
+const { isBanned } = await loadCommandModule('./lib/isBanned.js');
+const isAdmin = await loadCommandModule('./lib/isAdmin.js');
+const tagAllCommand = await loadCommandModule('./commands/tagall.js');
+const helpCommand = await loadCommandModule('./commands/help.js');
+const banCommand = await loadCommandModule('./commands/ban.js');
+const kickCommand = await loadCommandModule('./commands/kick.js');
+const stickerCommand = await loadCommandModule('./commands/sticker.js');
+const playCommand = await loadCommandModule('./commands/play.js');
+const songCommand = await loadCommandModule('./commands/song.js');
+const videoCommand = await loadCommandModule('./commands/video.js');
+const aiCommand = await loadCommandModule('./commands/ai.js');
+const tiktokCommand = await loadCommandModule('./commands/tiktok.js');
+const instagramCommand = await loadCommandModule('./commands/instagram.js');
+const facebookCommand = await loadCommandModule('./commands/facebook.js');
+const pingCommand = await loadCommandModule('./commands/ping.js');
+const aliveCommand = await loadCommandModule('./commands/alive.js');
+const ownerCommand = await loadCommandModule('./commands/owner.js');
+const { handleChatbotResponse } = await loadCommandModule('./commands/chatbot.js');
 
 const logger = pino({ level: 'silent' });
 const SESSION_DIR = './auto_sessions';
@@ -169,7 +180,7 @@ async function startBot() {
       }
     });
 
-    // Message handler (from main.js)
+    // Message handler
     sock.ev.on('messages.upsert', async ({ messages }) => {
       try {
         const msg = messages[0];
@@ -190,11 +201,11 @@ async function startBot() {
         if (global.getBotMode() === 'private' && !isOwner && !isSudoUser) return;
 
         // BANNED USER BLOCK
-        if (isBanned(sender) && !body.startsWith('.unban')) return;
+        if (isBanned?.(sender) && !body.startsWith('.unban')) return;
 
         // NO COMMAND → CHATBOT
         if (!body.startsWith('.')) {
-          if (isGroup) await handleChatbotResponse(sock, from, msg, body, sender);
+          if (isGroup && handleChatbotResponse) await handleChatbotResponse(sock, from, msg, body, sender);
           return;
         }
 
@@ -205,68 +216,82 @@ async function startBot() {
         switch (cmd) {
           case 'menu':
           case 'help':
-            await helpCommand(sock, from, msg);
+            if (helpCommand?.handle) await helpCommand.handle(sock, from, msg);
+            else if (helpCommand) await helpCommand(sock, from, msg);
             break;
 
           case 'ping':
-            await pingCommand(sock, from, msg);
+            if (pingCommand?.handle) await pingCommand.handle(sock, from, msg);
+            else if (pingCommand) await pingCommand(sock, from, msg);
             break;
 
           case 'alive':
-            await aliveCommand(sock, from, msg);
+            if (aliveCommand?.handle) await aliveCommand.handle(sock, from, msg);
+            else if (aliveCommand) await aliveCommand(sock, from, msg);
             break;
 
           case 'owner':
-            await ownerCommand(sock, from);
+            if (ownerCommand?.handle) await ownerCommand.handle(sock, from);
+            else if (ownerCommand) await ownerCommand(sock, from);
             break;
 
           case 'play':
           case 'song':
           case 'music':
-            await songCommand(sock, from, msg);
+            if (songCommand?.handle) await songCommand.handle(sock, from, msg);
+            else if (songCommand) await songCommand(sock, from, msg);
             break;
 
           case 'video':
           case 'ytmp4':
-            await videoCommand(sock, from, msg);
+            if (videoCommand?.handle) await videoCommand.handle(sock, from, msg);
+            else if (videoCommand) await videoCommand(sock, from, msg);
             break;
 
           case 'ai':
           case 'gpt':
           case 'gemini':
-            await aiCommand(sock, from, msg);
+            if (aiCommand?.handle) await aiCommand.handle(sock, from, msg);
+            else if (aiCommand) await aiCommand(sock, from, msg);
             break;
 
           case 'tiktok':
           case 'tt':
-            await tiktokCommand(sock, from, msg);
+            if (tiktokCommand?.handle) await tiktokCommand.handle(sock, from, msg);
+            else if (tiktokCommand) await tiktokCommand(sock, from, msg);
             break;
 
           case 'instagram':
           case 'ig':
-            await instagramCommand(sock, from, msg);
+            if (instagramCommand?.handle) await instagramCommand.handle(sock, from, msg);
+            else if (instagramCommand) await instagramCommand(sock, from, msg);
             break;
 
           case 'facebook':
           case 'fb':
-            await facebookCommand(sock, from, msg);
+            if (facebookCommand?.handle) await facebookCommand.handle(sock, from, msg);
+            else if (facebookCommand) await facebookCommand(sock, from, msg);
             break;
 
           case 'sticker':
           case 's':
-            await stickerCommand(sock, from, msg);
+            if (stickerCommand?.handle) await stickerCommand.handle(sock, from, msg);
+            else if (stickerCommand) await stickerCommand(sock, from, msg);
             break;
 
           case 'tagall':
-            if (isGroup) await tagAllCommand(sock, from, sender, msg);
+            if (isGroup && tagAllCommand?.handle) await tagAllCommand.handle(sock, from, sender, msg);
+            else if (isGroup && tagAllCommand) await tagAllCommand(sock, from, sender, msg);
             break;
 
           case 'kick':
-            if (isGroup) await kickCommand(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg);
+            if (isGroup && kickCommand?.handle) await kickCommand.handle(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg);
+            else if (isGroup && kickCommand) await kickCommand(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg);
             break;
 
           case 'ban':
-            await banCommand(sock, from, msg);
+            if (banCommand?.handle) await banCommand.handle(sock, from, msg);
+            else if (banCommand) await banCommand(sock, from, msg);
             break;
 
           case 'sudoadd':
@@ -308,7 +333,7 @@ async function startBot() {
       }
     });
 
-    // Group participant updates (welcome/goodbye if implemented)
+    // Group participant updates
     sock.ev.on('group-participants.update', async (update) => {
       // Add welcome/goodbye logic here if needed
     });
