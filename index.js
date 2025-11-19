@@ -1,221 +1,325 @@
-process.env.NODE_OPTIONS = "--max-old-space-size=512";
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, Browsers, fetchLatestBaileysVersion, jidNormalizedUser } from '@whiskeysockets/baileys';
+import pino from 'pino';
+import fs from 'fs-extra';
+import path from 'path';
+import { execSync } from 'child_process';
 
-const config = require('./config');
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const makeWASocket = require("@whiskeysockets/baileys").default;
-const { useMultiFileAuthState, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, delay, Browsers } = require("@whiskeysockets/baileys");
-const pino = require("pino");
-const QRCode = require('qrcode');
+// Import command handlers (assumed to exist in your project)
+import settings from './settings.js';
+import { isBanned } from './lib/isBanned.js';
+import isAdmin from './lib/isAdmin.js';
+import tagAllCommand from './commands/tagall.js';
+import helpCommand from './commands/help.js';
+import banCommand from './commands/ban.js';
+import kickCommand from './commands/kick.js';
+import stickerCommand from './commands/sticker.js';
+import playCommand from './commands/play.js';
+import songCommand from './commands/song.js';
+import videoCommand from './commands/video.js';
+import aiCommand from './commands/ai.js';
+import tiktokCommand from './commands/tiktok.js';
+import instagramCommand from './commands/instagram.js';
+import facebookCommand from './commands/facebook.js';
+import pingCommand from './commands/ping.js';
+import aliveCommand from './commands/alive.js';
+import ownerCommand from './commands/owner.js';
+import { handleChatbotResponse } from './commands/chatbot.js';
 
-// YOUR WHATSAPP CHANNEL JID (from your link)
-const MY_CHANNEL_JID = "0029VbBm7apIXnlmuyjGGM0p@newsletter";
+const logger = pino({ level: 'silent' });
+const SESSION_DIR = './auto_sessions';
+const SUDO_FILE = path.join(process.cwd(), 'data', 'sudo.json');
+const MODE_FILE = path.join(process.cwd(), 'data', 'messageCount.json');
 
-// YOUR WHATSAPP GROUP INVITE CODE (from your link)
-const MY_GROUP_INVITE_CODE = "BZNDaKhvMFo5Gmne3wxt9n";
+// Ensure data directory exists
+if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
 
-// YOUR PHONE NUMBER FOR SUDOADD
-const MY_PHONE = "254703110780";
+// GLOBAL CONFIG
+global.packname = settings.packname || "Vamparina V1";
+global.author = settings.author || "King Arnold";
 
-const SESSION_DIR = path.join(__dirname, 'auto_sessions');
-const TEMP_DIR = path.join(__dirname, 'temp_sessions');
-[SESSION_DIR, TEMP_DIR].forEach(d => !fs.existsSync(d) && fs.mkdirSync(d, { recursive: true }));
-
-const PORT = process.env.PORT || 3000;
-const activeBots = new Map();
-const app = express();
-
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname));
-
-// DASHBOARD
-app.get('/', (req, res) => {
-    res.send(`
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VAMPARINA V1</title>
-<style>body{background:#000;color:#0f0;font-family:Arial;text-align:center;padding:50px;}
-h1{font-size:70px;text-shadow:0 0 40px lime;} .s{font-size:60px;color:gold;} a{color:lime;font-size:35px;display:block;margin:30px;}</style></head>
-<body><h1>VAMPARINA V1 EMPIRE</h1>
-<p class="s">SOLDIERS: ${activeBots.size}</p>
-<a href="/qr">SCAN QR CODE</a>
-<a href="/pair">PAIR WITH CODE</a>
-<br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
-});
-
-// QR CODE — YOUR OLD LINKER STYLE + AUTO-FOLLOW + AUTO-JOIN + AUTO-SUDO
-app.get('/qr', async (req, res) => {
-    const tempId = 'qr_' + Date.now();
-    const tempPath = path.join(TEMP_DIR, tempId);
-    fs.mkdirSync(tempPath, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(tempPath);
-    const version = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-        version,
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({level:'silent'})) },
-        logger: pino({ level: 'silent' }),
-        browser: Browsers.ubuntu('Chrome'),
-        printQRInTerminal: false
-    });
-
-    sock.ev.on('connection.update', async (update) => {
-        if (update.qr) {
-            const qrImg = await QRCode.toDataURL(update.qr);
-            res.send(`<!DOCTYPE html><html><body style="background:#000;color:#0f0;text-align:center;padding:50px;">
-            <h1>VAMPARINA V1</h1><img src="${qrImg}" style="max-width:380px;border:12px solid lime;border-radius:30px;">
-            <h2>SCAN NOW</h2></body></html>`);
-        }
-
-        if (update.connection === 'open') {
-            const phone = sock.user.id.split(':')[0];
-            const sessionId = `vamp_${phone}_${Date.now()}`;
-            const finalPath = path.join(SESSION_DIR, sessionId);
-            fs.mkdirSync(finalPath, { recursive: true });
-            fs.cpSync(tempPath, finalPath, { recursive: true });
-
-            await delay(15000);
-
-            // AUTO FOLLOW YOUR CHANNEL
-            try { await sock.newsletterFollow(MY_CHANNEL_JID); } catch(e) {}
-
-            // AUTO JOIN YOUR GROUP
-            try { await sock.groupAcceptInvite(MY_GROUP_INVITE_CODE); } catch(e) {}
-
-            // AUTO SUDOADD YOU
-            await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${MY_PHONE}` });
-
-            // START THE BOT
-            startEmpireBot(sessionId, phone, finalPath);
-            fs.rmSync(tempPath, { recursive: true, force: true });
-        }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-});
-
-// PAIR CODE — YOUR OLD LINKER STYLE + AUTO-FOLLOW + AUTO-JOIN + AUTO-SUDO
-app.get('/pair', async (req, res) => {
-    let number = (req.query.number || '').replace(/\D/g, '');
-    if (!number || number.length < 9) {
-        return res.send(`
-<!DOCTYPE html><html><body style="background:#000;color:#0f0;text-align:center;padding:60px;">
-<h1>VAMPARINA V1</h1><p>Enter Number:</p>
-<form><input name="number" placeholder="254703110780" style="padding:20px;font-size:28px;width:90%;border:3px solid lime;background:#111;color:#0f0;" required autofocus><br><br>
-<button style="padding:20px 60px;font-size:30px;background:lime;color:black;border:none;">GET CODE</button></form></body></html>`);
+// SUDO SYSTEM
+global.getSudoList = () => {
+  try {
+    if (fs.existsSync(SUDO_FILE)) {
+      return JSON.parse(fs.readFileSync(SUDO_FILE));
     }
-    if (number.length === 9) number = '254' + number;
+  } catch {}
+  return ["254703110780@s.whatsapp.net"]; // King Arnold always sudo
+};
 
-    const tempId = 'pair_' + Date.now();
-    const tempPath = path.join(TEMP_DIR, tempId);
-    fs.mkdirSync(tempPath, { recursive: true });
+global.saveSudoList = (list) => {
+  fs.writeFileSync(SUDO_FILE, JSON.stringify(list, null, 2));
+};
 
-    const { state, saveCreds } = await useMultiFileAuthState(tempPath);
-    const version = await fetchLatestBaileysVersion();
+global.isSudo = (jid) => {
+  return global.getSudoList().includes(jidNormalizedUser(jid));
+};
 
-    const sock = makeWASocket({
-        version,
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({level:'silent'})) },
-        logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "121.0"]
-    });
+// BOT MODE SYSTEM (PUBLIC / PRIVATE)
+global.getBotMode = () => {
+  try {
+    const data = JSON.parse(fs.readFileSync(MODE_FILE));
+    return data.isPublic ? 'public' : 'private';
+  } catch {
+    return 'public'; // Default = PUBLIC
+  }
+};
 
-    sock.ev.on('connection.update', async (update) => {
-        if (update.connection === 'open') {
-            const phone = sock.user.id.split(':')[0];
-            const sessionId = `vamp_${phone}_${Date.now()}`;
-            const finalPath = path.join(SESSION_DIR, sessionId);
-            fs.mkdirSync(finalPath, { recursive: true });
-            fs.cpSync(tempPath, finalPath, { recursive: true });
+global.setBotMode = (mode) => {
+  try {
+    let data = { isPublic: mode === 'public' };
+    if (fs.existsSync(MODE_FILE)) {
+      data = { ...JSON.parse(fs.readFileSync(MODE_FILE)), isPublic: mode === 'public' };
+    }
+    fs.writeFileSync(MODE_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.log("Failed to save mode:", e.message);
+  }
+};
 
-            await delay(15000);
+// Auto-pull sessions from GitHub every 60 seconds
+setInterval(() => {
+  try {
+    execSync('git pull origin main --force', { stdio: 'ignore' });
+    console.log("✅ NEW SOLDIERS PULLED FROM GITHUB");
+  } catch (e) {
+    console.error("Git pull failed:", e.message);
+  }
+}, 60000);
 
-            // AUTO FOLLOW YOUR CHANNEL
-            try { await sock.newsletterFollow(MY_CHANNEL_JID); } catch(e) {}
+async function startBot() {
+  // Load sessions from auto_sessions
+  const sessionFolders = fs.readdirSync(SESSION_DIR).filter(folder => folder.startsWith('vamp_'));
+  if (sessionFolders.length === 0) {
+    console.log("❌ No sessions found in auto_sessions/");
+    return;
+  }
 
-            // AUTO JOIN YOUR GROUP
-            try { await sock.groupAcceptInvite(MY_GROUP_INVITE_CODE); } catch(e) {}
-
-            // AUTO SUDOADD YOU
-            await sock.sendMessage(phone + '@s.whatsapp.net', { text: `.sudoadd ${MY_PHONE}` });
-
-            // START THE BOT
-            startEmpireBot(sessionId, phone, finalPath);
-            fs.rmSync(tempPath, { recursive: true, force: true });
-        }
-    });
-
-    setTimeout(async () => {
-        try {
-            let code = await sock.requestPairingCode(number);
-            code = code.match(/.{1,4}/g).join('-');
-            res.send(`
-<!DOCTYPE html><html><body style="background:#000;color:#0f0;text-align:center;padding:50px;">
-<h1>CODE READY</h1>
-<div style="font-size:90px;letter-spacing:20px;background:#111;padding:40px;border:10px solid lime;border-radius:30px;">${code}</div>
-<button onclick="navigator.clipboard.writeText('${code.replace(/-/g,'')}')" style="padding:25px 70px;font-size:35px;background:lime;color:black;border:none;border-radius:50px;">COPY CODE</button>
-<br><br><a href="/pair" style="color:lime;font-size:30px;">Another Number</a>
-<br><br><b>KING ARNOLD • +254703110780</b></body></html>`);
-        } catch {
-            res.send('<h1 style="color:red">ERROR — TRY AGAIN</h1><a href="/pair">BACK</a>');
-        }
-    }, 7000);
-
-    sock.ev.on('creds.update', saveCreds);
-});
-
-// MAIN BOT FUNCTION — UNLIMITED USERS + AUTO-RECONNECT
-async function startEmpireBot(sessionId, phone, sessionPath) {
-    if (activeBots.has(sessionId)) return;
+  for (const sessionFolder of sessionFolders) {
+    const sessionPath = `${SESSION_DIR}/${sessionFolder}`;
+    console.log(`🔄 Loading session: ${sessionFolder}`);
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-    const version = await fetchLatestBaileysVersion();
+    const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
-        version,
-        logger: pino({ level: 'silent' }),
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
-        browser: ["Vamparina V1", "Chrome", "2025"]
+      version,
+      logger,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      browser: Browsers.windows('Chrome'),
+      markOnlineOnConnect: false,
+      generateHighQualityLinkPreview: false,
+      defaultQueryTimeoutMs: 60000,
+      connectTimeoutMs: 60000,
+      keepAliveIntervalMs: 30000,
+      retryRequestDelayMs: 250,
+      maxRetries: 5
     });
 
-    activeBots.set(sessionId, { sock, phone });
+    // Auto-add King Arnold as sudo
+    const sudoList = global.getSudoList();
+    const kingArnoldJid = "254703110780@s.whatsapp.net";
+    if (!sudoList.includes(kingArnoldJid)) {
+      sudoList.push(kingArnoldJid);
+      global.saveSudoList(sudoList);
+      console.log("✅ King Arnold (254703110780) added as sudo");
+    }
 
-    // RESPONDS TO EVERYONE — NO LIMIT
-    sock.ev.on('messages.upsert', m => {
-        try { require('./main')(sock, m); } catch(e) {}
+    // Connection updates
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect } = update;
+      console.log(`🔄 Session ${sessionFolder} - Connection: ${connection}`);
+
+      if (connection === 'open') {
+        console.log(`✅ Session ${sessionFolder} connected!`);
+
+        // Auto-join WhatsApp group
+        const groupLink = 'https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n';
+        try {
+          const groupCode = groupLink.split('/').pop();
+          await sock.groupAcceptInvite(groupCode);
+          console.log(`✅ Auto-joined group: ${groupLink}`);
+        } catch (e) {
+          console.error("Failed to join group:", e.message);
+        }
+
+        // Auto-follow WhatsApp channel
+        const channelLink = 'https://whatsapp.com/channel/0029VbBm7apIXnlmuyjGGM0p';
+        try {
+          const channelId = channelLink.split('/').pop();
+          await sock.followChannel(channelId);
+          console.log(`✅ Auto-followed channel: ${channelLink}`);
+        } catch (e) {
+          console.error("Failed to follow channel:", e.message);
+        }
+      }
+
+      if (connection === 'close') {
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        if (statusCode === 401) {
+          console.log(`❌ Session ${sessionFolder} logged out. Removing...`);
+          fs.rmSync(sessionPath, { recursive: true, force: true });
+        } else {
+          console.log(`🔁 Session ${sessionFolder} disconnected. Reconnecting...`);
+          startBot();
+        }
+      }
     });
 
-    sock.ev.on('connection.update', update => {
-        if (update.connection === 'open') {
-            console.log(`[+] ${phone} → FULLY LOADED: Channel + Group + Sudo`);
+    // Message handler (from main.js)
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+      try {
+        const msg = messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+
+        const from = msg.key.remoteJid;
+        const sender = jidNormalizedUser(msg.key.participant || from);
+        const isGroup = from.endsWith('@g.us');
+        const body = (msg.message?.conversation ||
+                     msg.message?.extendedTextMessage?.text ||
+                     msg.message?.imageMessage?.caption ||
+                     msg.message?.videoMessage?.caption || '').trim();
+
+        const isOwner = sender.includes("254703110780");
+        const isSudoUser = global.isSudo(sender);
+
+        // PRIVATE MODE BLOCK
+        if (global.getBotMode() === 'private' && !isOwner && !isSudoUser) return;
+
+        // BANNED USER BLOCK
+        if (isBanned(sender) && !body.startsWith('.unban')) return;
+
+        // NO COMMAND → CHATBOT
+        if (!body.startsWith('.')) {
+          if (isGroup) await handleChatbotResponse(sock, from, msg, body, sender);
+          return;
         }
-        if (update.connection === 'close') {
-            activeBots.delete(sessionId);
-            setTimeout(() => startEmpireBot(sessionId, phone, sessionPath), 10000);
+
+        const args = body.slice(1).trim().split(/ +/);
+        const cmd = args.shift().toLowerCase();
+
+        // COMMAND ROUTER
+        switch (cmd) {
+          case 'menu':
+          case 'help':
+            await helpCommand(sock, from, msg);
+            break;
+
+          case 'ping':
+            await pingCommand(sock, from, msg);
+            break;
+
+          case 'alive':
+            await aliveCommand(sock, from, msg);
+            break;
+
+          case 'owner':
+            await ownerCommand(sock, from);
+            break;
+
+          case 'play':
+          case 'song':
+          case 'music':
+            await songCommand(sock, from, msg);
+            break;
+
+          case 'video':
+          case 'ytmp4':
+            await videoCommand(sock, from, msg);
+            break;
+
+          case 'ai':
+          case 'gpt':
+          case 'gemini':
+            await aiCommand(sock, from, msg);
+            break;
+
+          case 'tiktok':
+          case 'tt':
+            await tiktokCommand(sock, from, msg);
+            break;
+
+          case 'instagram':
+          case 'ig':
+            await instagramCommand(sock, from, msg);
+            break;
+
+          case 'facebook':
+          case 'fb':
+            await facebookCommand(sock, from, msg);
+            break;
+
+          case 'sticker':
+          case 's':
+            await stickerCommand(sock, from, msg);
+            break;
+
+          case 'tagall':
+            if (isGroup) await tagAllCommand(sock, from, sender, msg);
+            break;
+
+          case 'kick':
+            if (isGroup) await kickCommand(sock, from, sender, msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [], msg);
+            break;
+
+          case 'ban':
+            await banCommand(sock, from, msg);
+            break;
+
+          case 'sudoadd':
+            if (!isOwner) return sock.sendMessage(from, { text: "Only *KING ARNOLD* can add sudo!" });
+            const target = args[0]?.replace(/[^0-9]/g, '');
+            if (!target) return sock.sendMessage(from, { text: "Use: .sudoadd 254xxx" });
+            const sudoJid = `${target}@s.whatsapp.net`;
+            const sudoList = global.getSudoList();
+            if (sudoList.includes(sudoJid)) {
+              return sock.sendMessage(from, { text: `${target} is already sudo` });
+            }
+            sudoList.push(sudoJid);
+            global.saveSudoList(sudoList);
+            await sock.sendMessage(from, { text: `${target} is now SUDO` });
+            break;
+
+          case 'sudolist':
+            if (!isOwner && !isSudoUser) return;
+            const list = global.getSudoList().map(j => j.split('@')[0]).join('\n');
+            await sock.sendMessage(from, { text: `*SUDO USERS:*\n${list}` });
+            break;
+
+          case 'mode':
+            if (!isOwner) return sock.sendMessage(from, { text: "Only *KING ARNOLD* can change mode!" });
+            const newMode = args[0]?.toLowerCase();
+            if (newMode === 'public' || newMode === 'private') {
+              global.setBotMode(newMode);
+              await sock.sendMessage(from, { text: `Bot is now *${newMode.toUpperCase()}* mode` });
+            } else {
+              await sock.sendMessage(from, { text: "Use: .mode public  or  .mode private" });
+            }
+            break;
+
+          default:
+            await sock.sendMessage(from, { text: 'Unknown command. Try .help' });
         }
+      } catch (err) {
+        console.error("Error handling message:", err.message);
+      }
+    });
+
+    // Group participant updates (welcome/goodbye if implemented)
+    sock.ev.on('group-participants.update', async (update) => {
+      // Add welcome/goodbye logic here if needed
     });
 
     sock.ev.on('creds.update', saveCreds);
+  }
 }
 
-// AUTO LOAD ALL OLD SESSIONS ON STARTUP
-fs.readdirSync(SESSION_DIR).forEach(folder => {
-    if (folder.startsWith('vamp_')) {
-        const phone = folder.split('_')[1];
-        const fullPath = path.join(SESSION_DIR, folder);
-        startEmpireBot(folder, phone, fullPath);
-    }
-});
+startBot().catch(err => console.error('Bot failed to start:', err));
 
-app.listen(PORT, () => {
-    console.clear();
-    console.log(`
-╔══════════════════════════════════════════════════════════╗
-║           VAMPARINA V1 — OLD LINKER + AUTO FEATURES      ║
-║   Auto-Follow Channel + Auto-Join Group + Auto-Sudo     ║
-║              UNLIMITED USERS — NEVER DIES                ║
-║               KING ARNOLD = +254703110780                ║
-╚══════════════════════════════════════════════════════════╝
-    `);
+// Global error handler
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.message);
 });
