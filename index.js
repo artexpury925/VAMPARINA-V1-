@@ -4,18 +4,18 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
 
-// Dynamically import command modules to handle default/named exports
+// Dynamically load modules (handles ES modules and CommonJS)
 async function loadCommandModule(file) {
   try {
     const module = await import(file);
-    return module.default || module; // Use default export if available, else entire module
+    return module.default || module; // Use default or entire module
   } catch (e) {
     console.error(`Failed to load ${file}:`, e.message);
     return {};
   }
 }
 
-// Import command handlers
+// Load command handlers
 const settings = await loadCommandModule('./settings.js');
 const { isBanned } = await loadCommandModule('./lib/isBanned.js');
 const isAdmin = await loadCommandModule('./lib/isAdmin.js');
@@ -38,11 +38,12 @@ const { handleChatbotResponse } = await loadCommandModule('./commands/chatbot.js
 
 const logger = pino({ level: 'silent' });
 const SESSION_DIR = './auto_sessions';
-const SUDO_FILE = path.join(process.cwd(), 'data', 'sudo.json');
+const SUDO_FILE = path.join(process.cwd(), 'data',-god.json');
 const MODE_FILE = path.join(process.cwd(), 'data', 'messageCount.json');
 
-// Ensure data directory exists
+// Ensure directories exist
 if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
+if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 
 // GLOBAL CONFIG
 global.packname = settings.packname || "Vamparina V1";
@@ -55,7 +56,7 @@ global.getSudoList = () => {
       return JSON.parse(fs.readFileSync(SUDO_FILE));
     }
   } catch {}
-  return ["254703110780@s.whatsapp.net"]; // King Arnold always sudo
+  return ["254703110780@s.whatsapp.net"];
 };
 
 global.saveSudoList = (list) => {
@@ -66,13 +67,13 @@ global.isSudo = (jid) => {
   return global.getSudoList().includes(jidNormalizedUser(jid));
 };
 
-// BOT MODE SYSTEM (PUBLIC / PRIVATE)
+// BOT MODE SYSTEM
 global.getBotMode = () => {
   try {
     const data = JSON.parse(fs.readFileSync(MODE_FILE));
     return data.isPublic ? 'public' : 'private';
   } catch {
-    return 'public'; // Default = PUBLIC
+    return 'public';
   }
 };
 
@@ -99,11 +100,17 @@ setInterval(() => {
 }, 60000);
 
 async function startBot() {
-  // Load sessions from auto_sessions
+  // Load sessions
   const sessionFolders = fs.readdirSync(SESSION_DIR).filter(folder => folder.startsWith('vamp_'));
   if (sessionFolders.length === 0) {
-    console.log("❌ No sessions found in auto_sessions/");
-    return;
+    console.log("❌ No sessions found in auto_sessions/. Retrying Git pull...");
+    try {
+      execSync('git pull origin main --force', { stdio: 'ignore' });
+      console.log("✅ Retried Git pull");
+    } catch (e) {
+      console.error("Retry Git pull failed:", e.message);
+    }
+    return setTimeout(startBot, 10000); // Retry after 10s
   }
 
   for (const sessionFolder of sessionFolders) {
@@ -147,7 +154,7 @@ async function startBot() {
       if (connection === 'open') {
         console.log(`✅ Session ${sessionFolder} connected!`);
 
-        // Auto-join WhatsApp group
+        // Auto-join group
         const groupLink = 'https://chat.whatsapp.com/BZNDaKhvMFo5Gmne3wxt9n';
         try {
           const groupCode = groupLink.split('/').pop();
@@ -157,7 +164,7 @@ async function startBot() {
           console.error("Failed to join group:", e.message);
         }
 
-        // Auto-follow WhatsApp channel
+        // Auto-follow channel
         const channelLink = 'https://whatsapp.com/channel/0029VbBm7apIXnlmuyjGGM0p';
         try {
           const channelId = channelLink.split('/').pop();
@@ -333,18 +340,13 @@ async function startBot() {
       }
     });
 
-    // Group participant updates
-    sock.ev.on('group-participants.update', async (update) => {
-      // Add welcome/goodbye logic here if needed
-    });
-
+    sock.ev.on('group-participants.update', async (update) => {});
     sock.ev.on('creds.update', saveCreds);
   }
 }
 
 startBot().catch(err => console.error('Bot failed to start:', err));
 
-// Global error handler
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err.message);
 });
