@@ -1,10 +1,8 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import pino from "pino";
-import qrcode from "qrcode-terminal";
 import express from "express";
-import { readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { readdirSync, existsSync, mkdirSync } from "fs";
 import { resolve } from "path";
-import fetch from "node-fetch";  // Add this import for fetching
 
 const app = express();
 app.get("/", (req, res) => res.send("<h1>VAMPARINA V1 BY ARNOLD CHIRCHIR IS ALIVE</h1>"));
@@ -13,24 +11,11 @@ app.listen(process.env.PORT || 3000);
 const OWNER = "254703110780@s.whatsapp.net";
 const GROUP_INVITE = "BZNDaKhvMFo5Gmne3wxt9n";
 const CHANNEL_ID = "0029VbBm7apIXnlmuyjGGM0p@newsletter";
-const SESSION_URL = "https://vamparina-code.onrender.com";  // URL for session ID/data
+const PHONE_NUMBER = "254703110780";  // Your phone number without + (for pairing code)
 
 async function startBot() {
   const authFolder = "./auto_sessions";
   if (!existsSync(authFolder)) mkdirSync(authFolder);
-
-  // Fetch session from URL and save to auto_sessions/creds.json
-  if (!existsSync(`${authFolder}/creds.json`)) {
-    try {
-      const response = await fetch(SESSION_URL);
-      const sessionData = await response.json();  // Assume JSON (adjust if it's text or other format)
-      writeFileSync(`${authFolder}/creds.json`, JSON.stringify(sessionData, null, 2));
-      console.log("Session fetched and saved from URL");
-    } catch (err) {
-      console.error("Failed to fetch session from URL:", err);
-      return;  // Exit if fetch fails
-    }
-  }
 
   const { state, saveCreds } = await useMultiFileAuthState(authFolder);
 
@@ -38,6 +23,25 @@ async function startBot() {
     auth: state,
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
+  });
+
+  // Generate pairing code if no session (instead of QR or fetch)
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+    if (qr) {
+      // Ignore QR, generate pairing code instead
+      const code = await sock.requestPairingCode(PHONE_NUMBER);
+      console.log(`PAIRING CODE: ${code} (Enter this on your phone's WhatsApp > Linked Devices > Link with phone number)`);
+    }
+    if (connection === "open") {
+      console.log("VAMPARINA V1 BY ARNOLD CHIRCHIR IS NOW ACTIVE");
+
+      try { await sock.groupAcceptInvite(GROUP_INVITE); } catch {}
+      try { await sock.newsletterFollow(CHANNEL_ID); } catch {}
+    }
+    if (connection === "close") {
+      if (lastDisconnect?.error?.output?.statusCode !== 401) startBot();
+    }
   });
 
   // Load commands from /commands folder
@@ -61,23 +65,6 @@ async function startBot() {
     console.log(`Loaded ${sock.commands.size} commands`);
   };
   await loadCommands();
-
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr) {
-      console.log("Fallback QR (if session invalid):");
-      qrcode.generate(qr, { small: true });
-    }
-    if (connection === "open") {
-      console.log("VAMPARINA V1 BY ARNOLD CHIRCHIR IS NOW ACTIVE");
-
-      try { await sock.groupAcceptInvite(GROUP_INVITE); } catch {}
-      try { await sock.newsletterFollow(CHANNEL_ID); } catch {}
-    }
-    if (connection === "close") {
-      if (lastDisconnect?.error?.output?.statusCode !== 401) startBot();
-    }
-  });
 
   sock.ev.on("creds.update", saveCreds);
 
