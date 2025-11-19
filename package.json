@@ -11,7 +11,8 @@
     "@whiskeysockets/baileys": "latest",
     "pino": "latest",
     "fs-extra": "^11.2.0",
-    "child_process": "latest"
+    "child_process": "latest",
+    "axios": "^1.7.7"
   },
   "author": "Arnold Chirchir <arnoldkipruto193@gmail.com>",
   "license": "MIT",
